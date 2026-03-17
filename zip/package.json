@@ -1,0 +1,29 @@
+{
+  "name": "offline-pos-app",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.2.0",
+    "@capacitor/cli": "^7.2.0",
+    "@capacitor/core": "^7.2.0",
+    "@vitejs/plugin-react": "^4.4.1",
+    "events": "^3.3.0",
+    "jspdf": "^3.0.1",
+    "pouchdb": "^7.3.0",
+    "pouchdb-browser": "^9.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^7.5.1"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.0.0",
+    "vite": "^4.0.0",
+    "vite-plugin-pwa": "^1.0.0"
+  }
+}

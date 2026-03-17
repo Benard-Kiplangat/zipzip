@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">BoscoPOS</string>
+    <string name="title_activity_main">BoscoPOS</string>
+    <string name="package_name">com.yelivate.boscopos</string>
+    <string name="custom_url_scheme">com.yelivate.boscopos</string>
+</resources>
