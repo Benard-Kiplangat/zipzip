@@ -1,0 +1,8 @@
+{
+  "name": "bosco-pos",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "npm --prefix zip install && npm --prefix zip run build",
+    "dev": "npm --prefix zip run dev"
+  }
+}
