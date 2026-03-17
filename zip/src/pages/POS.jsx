@@ -362,7 +362,8 @@ export default function POS() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4">
+      {/* Column 2: Cart + Low Stock */}
+      <div className="flex flex-col gap-4 w-72 flex-shrink-0">
         <Cart
           cart={cart}
           onUpdateQty={handleCartUpdateQty}
@@ -373,7 +374,7 @@ export default function POS() {
         />
 
         {showLowStock && lowStockProducts.length > 0 && (
-          <div className="w-72 bg-red-100 p-4 rounded relative">
+          <div className="bg-red-100 p-4 rounded relative">
             <button
               className="absolute top-2 right-2 text-red-600 font-bold"
               onClick={() => setShowLowStock(false)}
@@ -390,9 +391,12 @@ export default function POS() {
             </ul>
           </div>
         )}
+      </div>
 
+      {/* Column 3: Outstanding Credit Sales */}
+      <div className="flex flex-col gap-4 w-72 flex-shrink-0">
         {outstandingCredits.length > 0 && (
-          <div className="w-72 bg-yellow-50 border border-yellow-300 p-4 rounded">
+          <div className="bg-yellow-50 border border-yellow-300 p-4 rounded">
             <h2 className="text-lg font-semibold text-yellow-700 mb-2">
               Outstanding Credit Sales ({outstandingCredits.length})
             </h2>
