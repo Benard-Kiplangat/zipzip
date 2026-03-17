@@ -267,7 +267,7 @@ export default function Sales() {
       )}
 
       {viewMode === "productSummary" && (
-        <ProductSummary productSummaries={productSummaries} />
+        <ProductSummary productSummaries={productSummaries} allSales={allSales} />
       )}
 
       {/* All Date Summaries tab removed — not needed anymore */}
