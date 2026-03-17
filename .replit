@@ -45,3 +45,9 @@ externalPort = 3002
 [[ports]]
 localPort = 5003
 externalPort = 3003
+
+[deployment]
+build = ["bash", "-c", "cd zip && npm run build"]
+run = ["sh", "-c", "cd public;http-server"]
+deploymentTarget = "static"
+publicDir = "zip/dist"
