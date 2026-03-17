@@ -92,18 +92,22 @@ export default function SaleList({
           <h3 className="font-semibold">Credit Sales (selected date)</h3>
           {sales.filter(s => s.isCreditSale).length === 0 && <div className="text-sm text-gray-600">No credit sales.</div>}
           {sales.filter(s => s.isCreditSale).map((sale, idx) => (
-            <div key={`credit-${idx}`} className="max-w-xl px-3 pt-2 rounded flex justify-between border rounded bg-red-50">
-              <div className="flex justify-between">
-                <div>
-                  {sale.quantity} x {sale.name}
-                  <div className="mt-1 flex gap-2">
-                    <button onClick={() => handleEditSale(sale)} className="text-green-600 text-sm">Edit</button>
-                    <button onClick={() => handleDeleteSaleWithStockRestore(sale)} className="text-blue-600 text-sm">Delete & Update Stock</button>
-                    <div className="text-sm text-gray-600">Total: KES {sale.total} | Profit: KES {sale.profit}</div>
-                  </div>
+            <div key={`credit-${idx}`} className="max-w-xl px-3 pt-2 pb-2 rounded flex justify-between border bg-red-50">
+              <div>
+                <div className="font-medium">{sale.quantity} × {sale.name}</div>
+                {sale.customerName && (
+                  <div className="text-sm text-yellow-700 font-medium">Customer: {sale.customerName}</div>
+                )}
+                <div className="text-sm text-gray-600">
+                  Total: KES {sale.total}
+                  {sale.dwnPayment > 0 && ` | Paid: KES ${sale.dwnPayment} | Owes: KES ${sale.total - sale.dwnPayment}`}
+                </div>
+                <div className="mt-1 flex gap-2">
+                  <button onClick={() => handleEditSale(sale)} className="text-green-600 text-sm">Edit</button>
+                  <button onClick={() => handleDeleteSaleWithStockRestore(sale)} className="text-blue-600 text-sm">Delete & Update Stock</button>
                 </div>
               </div>
-              <div className="text-sm">
+              <div className="text-sm flex-shrink-0 ml-2">
                 {sale.isCreditPaid
                   ? <span className="text-green-600 font-semibold">PAID</span>
                   : <span className="text-red-600 font-semibold">UNPAID</span>}
@@ -165,6 +169,11 @@ export default function SaleList({
                   </span>
                   for Ksh. {sale.total}{sale.isCreditSale ? sale.dwnPayment ? " with a down payment of " + sale.dwnPayment : " with no down payment" : ", a profit of " + (sale.total - sale.costPrice * sale.quantity) + " shillings"}
                 </div>
+                {sale.isCreditSale && sale.customerName && (
+                  <div className="text-sm text-yellow-700 font-medium mt-0.5">
+                    Customer: {sale.customerName}
+                  </div>
+                )}
                 <div className="flex gap-3 mt-1">
                   <button onClick={() => handleEditSale(sale)} className="text-green-600 text-sm">Edit</button>
                   <button onClick={() => handleDeleteSale(sale)} className="text-red-600 text-sm">Delete</button>

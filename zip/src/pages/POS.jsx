@@ -12,10 +12,13 @@ export default function POS() {
   const [sellingPrices, setSellingPrices] = useState({});
   const [showLowStock, setShowLowStock] = useState(true);
   const [creditSales, setCreditSales] = useState({});
+  const [customerNames, setCustomerNames] = useState({});
   const [cart, setCart] = useState([]);
+  const [outstandingCredits, setOutstandingCredits] = useState([]);
 
   useEffect(() => {
     loadProducts();
+    loadOutstandingCredits();
   }, []);
 
   useEffect(() => {
@@ -23,6 +26,18 @@ export default function POS() {
       loadFullProducts();
     }
   }, [search]);
+
+  const loadOutstandingCredits = async () => {
+    try {
+      const result = await db.allDocs({ include_docs: true });
+      const unpaid = result.rows
+        .map(r => r.doc)
+        .filter(d => d && d.type === "sale" && d.isCreditSale && !d.isCreditPaid);
+      setOutstandingCredits(unpaid);
+    } catch (e) {
+      console.error("Failed to load credit sales", e);
+    }
+  };
 
   const loadProducts = async () => {
     try {
@@ -84,6 +99,12 @@ export default function POS() {
       return;
     }
 
+    const isCreditSale = creditSales[product._id] || false;
+    if (isCreditSale && !customerNames[product._id]?.trim()) {
+      alert("Please enter the customer's name for a credit sale.");
+      return;
+    }
+
     const total = qty * (sellingPrices[product._id] || product.sellingPrice);
     const profit = total - (product.costPrice * qty);
 
@@ -97,22 +118,22 @@ export default function POS() {
       sellingPrice: sellingPrices[product._id] || product.sellingPrice,
       profit,
       timestamp: new Date().toISOString(),
-      isCreditSale: creditSales[product._id] || false,
+      isCreditSale,
       dwnPayment: downPayment[product._id] || 0,
+      customerName: isCreditSale ? (customerNames[product._id] || "").trim() : "",
     };
 
-    const updatedProduct = {
-      ...product,
-      stock: product.stock - qty
-    };
+    const updatedProduct = { ...product, stock: product.stock - qty };
 
     await db.put(sale);
     await db.put(updatedProduct);
     loadProducts();
+    loadOutstandingCredits();
     showToast(`Sold ${qty} x ${product.name} — KES ${total}`);
     try { bumpPopular(product._id); } catch (e) { /* ignore */ }
     setQuantities(prev => ({ ...prev, [product._id]: 1 }));
     setCreditSales({});
+    setCustomerNames({});
     setSellingPrices(prev => ({ ...prev, [product._id]: product.sellingPrice }));
     setDownPayment({});
   };
@@ -156,9 +177,7 @@ export default function POS() {
     setCart(prev => prev.filter(item => item.product._id !== productId));
   };
 
-  const handleCartClear = () => {
-    setCart([]);
-  };
+  const handleCartClear = () => setCart([]);
 
   const handleCartSale = async () => {
     if (cart.length === 0) return;
@@ -191,6 +210,7 @@ export default function POS() {
         timestamp: bulkSaleId,
         isCreditSale: false,
         dwnPayment: 0,
+        customerName: "",
         isBulkSale: true,
         bulkSaleId,
       };
@@ -228,83 +248,84 @@ export default function POS() {
 
         <div className="space-y-3">
           {filteredProducts.map(product => (
-            <div key={product._id} className="border max-w-xl px-3 pt-2 rounded flex justify-between">
-              <div>{product.name}<p className="text-sm text-gray-600"> {product.stock} remaining </p> </div>
-              <div className="flex justify-end items-start">
-                <input
-                  type="number"
-                  className="border mr-1 p-1 w-16 rounded"
-                  value={sellingPrices[product._id] || product.sellingPrice}
-                  onChange={(e) =>
-                    setSellingPrices(prev => ({
-                      ...prev,
-                      [product._id]: parseInt(e.target.value)
-                    }))
-                  }
-                />
-                <input
-                  type="number"
-                  min="1"
-                  className="border mr-1 p-1 w-12 rounded"
-                  value={quantities[product._id] || 1}
-                  onChange={(e) =>
-                    setQuantities(prev => ({
-                      ...prev,
-                      [product._id]: parseInt(e.target.value) || 1
-                    }))
-                  }
-                />
-                <div className="border mr-1 p-1 w-16 rounded">
-                  <label htmlFor="credit">Crt?</label>
-                  <input
-                    className="mx-1"
-                    type="checkbox"
-                    name="credit"
-                    id="credit"
-                    checked={creditSales[product._id] || false}
-                    onChange={() => {
-                      setCreditSales(prev => ({
-                        ...prev,
-                        [product._id]: !prev[product._id]
-                      }));
-                    }}
-                  />
+            <div key={product._id} className="border max-w-xl px-3 pt-2 pb-2 rounded">
+              <div className="flex justify-between items-start">
+                <div>
+                  {product.name}
+                  <p className="text-sm text-gray-600">{product.stock} remaining</p>
                 </div>
-                {creditSales[product._id] && (
-                  <div>
+                <div className="flex justify-end items-start flex-wrap gap-1">
+                  <input
+                    type="number"
+                    className="border p-1 w-16 rounded"
+                    value={sellingPrices[product._id] || product.sellingPrice}
+                    onChange={(e) =>
+                      setSellingPrices(prev => ({ ...prev, [product._id]: parseInt(e.target.value) }))
+                    }
+                  />
+                  <input
+                    type="number"
+                    min="1"
+                    className="border p-1 w-12 rounded"
+                    value={quantities[product._id] || 1}
+                    onChange={(e) =>
+                      setQuantities(prev => ({ ...prev, [product._id]: parseInt(e.target.value) || 1 }))
+                    }
+                  />
+                  <div className="border p-1 w-16 rounded flex items-center gap-1">
+                    <label className="text-xs">Crt?</label>
                     <input
-                      type="number"
-                      className="border mr-1 p-1 w-16 rounded"
-                      value={downPayment[product._id] || 0}
-                      onChange={(e) =>
-                        setDownPayment(prev => ({
-                          ...prev,
-                          [product._id]: parseInt(e.target.value)
-                        }))
+                      type="checkbox"
+                      checked={creditSales[product._id] || false}
+                      onChange={() =>
+                        setCreditSales(prev => ({ ...prev, [product._id]: !prev[product._id] }))
                       }
                     />
                   </div>
-                )}
-                <div className="flex flex-col items-end gap-1">
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => handleSell(product)}
-                      className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 whitespace-nowrap"
-                    >
-                      Sell ({(quantities[product._id] || 1) * (sellingPrices[product._id] || product.sellingPrice)})
-                    </button>
-                    <button
-                      onClick={() => handleAddToCart(product)}
-                      className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 whitespace-nowrap"
-                    >
-                      + Cart
-                    </button>
+                  <div className="flex flex-col items-end gap-1">
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => handleSell(product)}
+                        className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 whitespace-nowrap"
+                      >
+                        Sell ({(quantities[product._id] || 1) * (sellingPrices[product._id] || product.sellingPrice)})
+                      </button>
+                      <button
+                        onClick={() => handleAddToCart(product)}
+                        className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 whitespace-nowrap"
+                      >
+                        + Cart
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      (Profit - {((sellingPrices[product._id] || product.sellingPrice) - product.costPrice) * (quantities[product._id] || 1)})
+                    </p>
                   </div>
-                  <p className="text-sm text-center text-gray-600">
-                    (Profit - {((sellingPrices[product._id] || product.sellingPrice) - product.costPrice) * (quantities[product._id] || 1)})
-                  </p>
                 </div>
               </div>
+
+              {creditSales[product._id] && (
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  <input
+                    type="text"
+                    placeholder="Customer name"
+                    className="border p-1 rounded flex-1 min-w-32"
+                    value={customerNames[product._id] || ""}
+                    onChange={(e) =>
+                      setCustomerNames(prev => ({ ...prev, [product._id]: e.target.value }))
+                    }
+                  />
+                  <input
+                    type="number"
+                    placeholder="Down payment"
+                    className="border p-1 w-24 rounded"
+                    value={downPayment[product._id] || 0}
+                    onChange={(e) =>
+                      setDownPayment(prev => ({ ...prev, [product._id]: parseInt(e.target.value) }))
+                    }
+                  />
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -336,6 +357,34 @@ export default function POS() {
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {outstandingCredits.length > 0 && (
+          <div className="w-72 bg-yellow-50 border border-yellow-300 p-4 rounded">
+            <h2 className="text-lg font-semibold text-yellow-700 mb-2">
+              Outstanding Credit Sales ({outstandingCredits.length})
+            </h2>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {outstandingCredits.map(sale => {
+                const amountOwed = sale.total - (sale.dwnPayment || 0);
+                return (
+                  <div key={sale._id} className="bg-white border border-yellow-200 rounded p-2 text-sm">
+                    <div className="font-semibold text-gray-800">
+                      {sale.customerName || <span className="italic text-gray-400">No name</span>}
+                    </div>
+                    <div className="text-gray-600">{sale.quantity} × {sale.name}</div>
+                    <div className="text-red-600 font-medium">Owes: KES {amountOwed}</div>
+                    {sale.dwnPayment > 0 && (
+                      <div className="text-gray-400 text-xs">Paid down: KES {sale.dwnPayment}</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-2 pt-2 border-t border-yellow-300 text-sm font-semibold text-yellow-800">
+              Total owed: KES {outstandingCredits.reduce((sum, s) => sum + s.total - (s.dwnPayment || 0), 0)}
+            </div>
           </div>
         )}
       </div>

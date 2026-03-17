@@ -47,23 +47,7 @@ export default function EditSaleModal({ editingSale, handleEditChange, handleSav
               className="w-full border p-2 rounded"
             />
           </label>
-          {editingSale.isCreditSale && (
-            <label className="block">
-              <div className="text-sm">Down Payment</div>
-              <input
-                type="number"
-                value={editingSale.dwnPayment}
-                onChange={(e) => {
-                  handleEditChange("dwnPayment", Number(e.target.value))
-                  if (Number(e.target.value) == editingSale.total) {
-                    handleEditChange("isCreditPaid", true);
-                  }
-                }
-                }
-                className="w-full border p-2 rounded"
-              />
-            </label>
-          )}
+
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -74,14 +58,42 @@ export default function EditSaleModal({ editingSale, handleEditChange, handleSav
           </label>
 
           {editingSale.isCreditSale && (
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={!!editingSale.isCreditPaid}
-                onChange={(e) => handleEditChange("isCreditPaid", e.target.checked)}
-              />
-              <span className="text-sm">Mark Credit as Paid</span>
-            </label>
+            <>
+              <label className="block">
+                <div className="text-sm">Customer Name</div>
+                <input
+                  type="text"
+                  value={editingSale.customerName || ""}
+                  onChange={(e) => handleEditChange("customerName", e.target.value)}
+                  placeholder="Enter customer name"
+                  className="w-full border p-2 rounded"
+                />
+              </label>
+
+              <label className="block">
+                <div className="text-sm">Down Payment</div>
+                <input
+                  type="number"
+                  value={editingSale.dwnPayment}
+                  onChange={(e) => {
+                    handleEditChange("dwnPayment", Number(e.target.value));
+                    if (Number(e.target.value) === editingSale.total) {
+                      handleEditChange("isCreditPaid", true);
+                    }
+                  }}
+                  className="w-full border p-2 rounded"
+                />
+              </label>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={!!editingSale.isCreditPaid}
+                  onChange={(e) => handleEditChange("isCreditPaid", e.target.checked)}
+                />
+                <span className="text-sm">Mark Credit as Paid</span>
+              </label>
+            </>
           )}
 
           <div className="text-sm text-gray-600">
