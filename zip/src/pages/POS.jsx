@@ -30,10 +30,33 @@ export default function POS() {
   const loadOutstandingCredits = async () => {
     try {
       const result = await db.allDocs({ include_docs: true });
-      const unpaid = result.rows
+      const all = result.rows
         .map(r => r.doc)
         .filter(d => d && d.type === "sale" && d.isCreditSale && !d.isCreditPaid);
-      setOutstandingCredits(unpaid);
+
+      const entries = [];
+      const bulkMap = {};
+      all.forEach(sale => {
+        if (sale.isBulkSale && sale.bulkSaleId) {
+          if (!bulkMap[sale.bulkSaleId]) {
+            const group = {
+              isBulkGroup: true,
+              bulkSaleId: sale.bulkSaleId,
+              customerName: sale.customerName,
+              dwnPayment: sale.bulkDwnPayment || 0,
+              timestamp: sale.timestamp,
+              items: [],
+            };
+            bulkMap[sale.bulkSaleId] = group;
+            entries.push(group);
+          }
+          bulkMap[sale.bulkSaleId].items.push(sale);
+        } else {
+          entries.push(sale);
+        }
+      });
+
+      setOutstandingCredits(entries);
     } catch (e) {
       console.error("Failed to load credit sales", e);
     }
@@ -179,8 +202,13 @@ export default function POS() {
 
   const handleCartClear = () => setCart([]);
 
-  const handleCartSale = async () => {
+  const handleCartSale = async ({ isCreditSale = false, customerName = "", dwnPayment = 0 } = {}) => {
     if (cart.length === 0) return;
+
+    if (isCreditSale && !customerName.trim()) {
+      alert("Please enter the customer's name for a credit sale.");
+      return;
+    }
 
     for (const item of cart) {
       const current = products.find(p => p._id === item.product._id);
@@ -208,9 +236,10 @@ export default function POS() {
         sellingPrice: item.sellingPrice,
         profit,
         timestamp: bulkSaleId,
-        isCreditSale: false,
+        isCreditSale,
+        customerName: isCreditSale ? customerName.trim() : "",
         dwnPayment: 0,
-        customerName: "",
+        bulkDwnPayment: isCreditSale ? Number(dwnPayment) : 0,
         isBulkSale: true,
         bulkSaleId,
       };
@@ -226,7 +255,9 @@ export default function POS() {
     const totalAmount = cart.reduce((sum, item) => sum + item.qty * item.sellingPrice, 0);
     setCart([]);
     loadProducts();
-    showToast(`Bulk sale of ${cart.length} items — KES ${totalAmount} complete`);
+    loadOutstandingCredits();
+    const creditNote = isCreditSale ? ` (Credit — ${customerName})` : "";
+    showToast(`Bulk sale of ${cart.length} items — KES ${totalAmount} complete${creditNote}`);
   };
 
   const filteredProducts = products.filter(p =>
@@ -366,10 +397,31 @@ export default function POS() {
               Outstanding Credit Sales ({outstandingCredits.length})
             </h2>
             <div className="space-y-2 max-h-64 overflow-y-auto">
-              {outstandingCredits.map(sale => {
+              {outstandingCredits.map((entry, idx) => {
+                if (entry.isBulkGroup) {
+                  const bulkTotal = entry.items.reduce((sum, s) => sum + s.total, 0);
+                  const amountOwed = bulkTotal - (entry.dwnPayment || 0);
+                  return (
+                    <div key={`bulk-${entry.bulkSaleId}`} className="bg-white border border-purple-200 rounded p-2 text-sm">
+                      <div className="flex items-center gap-1 mb-1">
+                        <span className="bg-purple-600 text-white text-xs font-bold px-1.5 py-0.5 rounded">BULK</span>
+                        <span className="font-semibold text-gray-800">
+                          {entry.customerName || <span className="italic text-gray-400">No name</span>}
+                        </span>
+                      </div>
+                      <div className="text-gray-500 text-xs">{entry.items.length} items — {entry.items.map(i => i.name).join(", ")}</div>
+                      <div className="text-red-600 font-medium mt-1">Owes: KES {amountOwed}</div>
+                      {entry.dwnPayment > 0 && (
+                        <div className="text-gray-400 text-xs">Paid down: KES {entry.dwnPayment}</div>
+                      )}
+                    </div>
+                  );
+                }
+
+                const sale = entry;
                 const amountOwed = sale.total - (sale.dwnPayment || 0);
                 return (
-                  <div key={sale._id} className="bg-white border border-yellow-200 rounded p-2 text-sm">
+                  <div key={sale._id || idx} className="bg-white border border-yellow-200 rounded p-2 text-sm">
                     <div className="font-semibold text-gray-800">
                       {sale.customerName || <span className="italic text-gray-400">No name</span>}
                     </div>
@@ -383,7 +435,13 @@ export default function POS() {
               })}
             </div>
             <div className="mt-2 pt-2 border-t border-yellow-300 text-sm font-semibold text-yellow-800">
-              Total owed: KES {outstandingCredits.reduce((sum, s) => sum + s.total - (s.dwnPayment || 0), 0)}
+              Total owed: KES {outstandingCredits.reduce((sum, entry) => {
+                if (entry.isBulkGroup) {
+                  const bulkTotal = entry.items.reduce((s, i) => s + i.total, 0);
+                  return sum + bulkTotal - (entry.dwnPayment || 0);
+                }
+                return sum + entry.total - (entry.dwnPayment || 0);
+              }, 0)}
             </div>
           </div>
         )}

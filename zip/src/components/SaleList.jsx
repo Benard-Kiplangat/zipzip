@@ -27,22 +27,49 @@ function groupSales(sales) {
   return result;
 }
 
-function BulkSaleGroup({ group, handleEditSale, handleDeleteSale, handleDeleteSaleWithStockRestore, selectedSales, toggleSaleSelection, isSelected }) {
+function BulkSaleGroup({ group, handleEditSale, handleDeleteSale, handleDeleteSaleWithStockRestore }) {
   const totalAmount = group.items.reduce((sum, s) => sum + s.total, 0);
   const totalProfit = group.items.reduce((sum, s) => sum + s.profit, 0);
   const totalQty = group.items.reduce((sum, s) => sum + s.quantity, 0);
+  const isCreditSale = group.items[0]?.isCreditSale || false;
+  const customerName = group.items[0]?.customerName || "";
+  const bulkDwnPayment = group.items[0]?.bulkDwnPayment || 0;
+  const amountOwed = totalAmount - bulkDwnPayment;
+
+  const borderClass = isCreditSale ? "border-red-400 bg-red-50" : "border-purple-400 bg-purple-50";
+  const badgeBg = isCreditSale ? "bg-red-600" : "bg-purple-600";
 
   return (
-    <div className="border-2 border-purple-400 rounded p-3 bg-purple-50">
+    <div className={`border-2 ${borderClass} rounded p-3`}>
       <div className="flex justify-between items-center mb-2">
-        <div>
-          <span className="bg-purple-600 text-white text-xs font-bold px-2 py-0.5 rounded mr-2">BULK SALE</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`${badgeBg} text-white text-xs font-bold px-2 py-0.5 rounded`}>
+            {isCreditSale ? "BULK CREDIT" : "BULK SALE"}
+          </span>
           <span className="text-sm text-gray-500">
             {new Date(group.timestamp).toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
           </span>
+          {isCreditSale && customerName && (
+            <span className="text-sm font-semibold text-yellow-700">{customerName}</span>
+          )}
         </div>
-        <div className="text-sm font-bold text-purple-700">KES {totalAmount} | Profit: {totalProfit}</div>
+        <div className="text-sm font-bold text-right">
+          <div>KES {totalAmount}</div>
+          <div className="text-gray-500 text-xs">Profit: {totalProfit}</div>
+        </div>
       </div>
+
+      {isCreditSale && (
+        <div className="mb-2 text-sm bg-white rounded p-2 border border-red-200">
+          {bulkDwnPayment > 0
+            ? <><span className="text-gray-600">Down: KES {bulkDwnPayment} | </span><span className="text-red-600 font-medium">Owes: KES {amountOwed}</span></>
+            : <span className="text-red-600 font-medium">Owes full: KES {totalAmount} (no down payment)</span>
+          }
+          {group.items[0]?.isCreditPaid && (
+            <span className="ml-2 text-green-600 font-bold">PAID</span>
+          )}
+        </div>
+      )}
 
       <div className="space-y-1">
         {group.items.map((sale, idx) => (
@@ -91,29 +118,68 @@ export default function SaleList({
         <div className="mt-3 space-y-2 mb-4">
           <h3 className="font-semibold">Credit Sales (selected date)</h3>
           {sales.filter(s => s.isCreditSale).length === 0 && <div className="text-sm text-gray-600">No credit sales.</div>}
-          {sales.filter(s => s.isCreditSale).map((sale, idx) => (
-            <div key={`credit-${idx}`} className="max-w-xl px-3 pt-2 pb-2 rounded flex justify-between border bg-red-50">
-              <div>
-                <div className="font-medium">{sale.quantity} × {sale.name}</div>
-                {sale.customerName && (
-                  <div className="text-sm text-yellow-700 font-medium">Customer: {sale.customerName}</div>
-                )}
-                <div className="text-sm text-gray-600">
-                  Total: KES {sale.total}
-                  {sale.dwnPayment > 0 && ` | Paid: KES ${sale.dwnPayment} | Owes: KES ${sale.total - sale.dwnPayment}`}
+          {groupSales(sales.filter(s => s.isCreditSale)).map((entry, idx) => {
+            if (entry.isBulkGroup) {
+              const bulkTotal = entry.items.reduce((s, i) => s + i.total, 0);
+              const bulkDwnPayment = entry.items[0]?.bulkDwnPayment || 0;
+              const amountOwed = bulkTotal - bulkDwnPayment;
+              const isPaid = entry.items[0]?.isCreditPaid || false;
+              return (
+                <div key={`credit-bulk-${entry.bulkSaleId}`} className="max-w-xl px-3 pt-2 pb-2 rounded border bg-red-50">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded">BULK CREDIT</span>
+                        <span className="font-semibold">{entry.items[0]?.customerName || <span className="italic text-gray-400">No name</span>}</span>
+                      </div>
+                      {entry.items.map((s, i) => (
+                        <div key={i} className="text-sm text-gray-700">{s.quantity} × {s.name} — KES {s.total}</div>
+                      ))}
+                      <div className="text-sm text-gray-600 mt-1">
+                        Total: KES {bulkTotal}
+                        {bulkDwnPayment > 0 && ` | Paid: KES ${bulkDwnPayment} | Owes: KES ${amountOwed}`}
+                      </div>
+                      <div className="mt-1 flex gap-2">
+                        {entry.items.map((s, i) => (
+                          <button key={i} onClick={() => handleEditSale(s)} className="text-green-600 text-sm">Edit {s.name}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="text-sm flex-shrink-0 ml-2">
+                      {isPaid
+                        ? <span className="text-green-600 font-semibold">PAID</span>
+                        : <span className="text-red-600 font-semibold">UNPAID</span>}
+                    </div>
+                  </div>
                 </div>
-                <div className="mt-1 flex gap-2">
-                  <button onClick={() => handleEditSale(sale)} className="text-green-600 text-sm">Edit</button>
-                  <button onClick={() => handleDeleteSaleWithStockRestore(sale)} className="text-blue-600 text-sm">Delete & Update Stock</button>
+              );
+            }
+
+            const sale = entry;
+            return (
+              <div key={`credit-${idx}`} className="max-w-xl px-3 pt-2 pb-2 rounded flex justify-between border bg-red-50">
+                <div>
+                  <div className="font-medium">{sale.quantity} × {sale.name}</div>
+                  {sale.customerName && (
+                    <div className="text-sm text-yellow-700 font-medium">Customer: {sale.customerName}</div>
+                  )}
+                  <div className="text-sm text-gray-600">
+                    Total: KES {sale.total}
+                    {sale.dwnPayment > 0 && ` | Paid: KES ${sale.dwnPayment} | Owes: KES ${sale.total - sale.dwnPayment}`}
+                  </div>
+                  <div className="mt-1 flex gap-2">
+                    <button onClick={() => handleEditSale(sale)} className="text-green-600 text-sm">Edit</button>
+                    <button onClick={() => handleDeleteSaleWithStockRestore(sale)} className="text-blue-600 text-sm">Delete & Update Stock</button>
+                  </div>
+                </div>
+                <div className="text-sm flex-shrink-0 ml-2">
+                  {sale.isCreditPaid
+                    ? <span className="text-green-600 font-semibold">PAID</span>
+                    : <span className="text-red-600 font-semibold">UNPAID</span>}
                 </div>
               </div>
-              <div className="text-sm flex-shrink-0 ml-2">
-                {sale.isCreditPaid
-                  ? <span className="text-green-600 font-semibold">PAID</span>
-                  : <span className="text-red-600 font-semibold">UNPAID</span>}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
