@@ -21,7 +21,7 @@ export default function Cart({ cart, onUpdateQty, onUpdatePrice, onRemoveItem, o
   };
 
   return (
-    <div className="p-4 border rounded bg-gray-50 flex flex-col gap-2 self-start sticky top-4">
+    <div className="p-4 border rounded bg-gray-50 w-full flex flex-col gap-2 self-start sticky top-4">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-bold">Cart {cart.length > 0 && `(${cart.length})`}</h2>
         {cart.length > 0 && (
