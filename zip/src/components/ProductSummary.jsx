@@ -15,9 +15,10 @@ function buildProductHistory(allSales, productName) {
       const totalQty = sales.reduce((s, x) => s + x.quantity, 0);
       const totalRevenue = sales.reduce((s, x) => s + x.total, 0);
       const totalProfit = sales.reduce((s, x) => s + x.profit, 0);
-      return { date, sales: sales.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)), totalQty, totalRevenue, totalProfit };
+      const latestTs = Math.max(...sales.map(s => new Date(s.timestamp).getTime()));
+      return { date, sales: sales.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)), totalQty, totalRevenue, totalProfit, latestTs };
     })
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
+    .sort((a, b) => b.latestTs - a.latestTs);
 }
 
 function ProductHistoryPanel({ productName, allSales, onClose }) {
