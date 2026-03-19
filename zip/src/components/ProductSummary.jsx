@@ -89,20 +89,67 @@ function ProductHistoryPanel({ productName, allSales, onClose }) {
   );
 }
 
-export default function ProductSummary({ productSummaries = {}, allSales = [] }) {
+export default function ProductSummary({ allSales = [] }) {
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [productSearch, setProductSearch] = useState("");
+  const [productRange, setProductRange] = useState("week");
+
+  const summaries = useMemo(() => {
+    let cutoff = 0;
+    if (productRange === "week") cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    else if (productRange === "month") cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+    const q = productSearch.trim().toLowerCase();
+    const map = {};
+
+    allSales.forEach(s => {
+      if (new Date(s.timestamp).getTime() < cutoff) return;
+      if (q && !s.name?.toLowerCase().includes(q)) return;
+      if (!map[s.name]) map[s.name] = { quantity: 0, revenue: 0, profit: 0 };
+      map[s.name].quantity += s.quantity;
+      map[s.name].revenue += s.total;
+      map[s.name].profit += s.profit ?? (s.total - s.costPrice * s.quantity);
+    });
+
+    return Object.entries(map).sort((a, b) => b[1].revenue - a[1].revenue);
+  }, [allSales, productRange, productSearch]);
+
+  const rangeLabel = productRange === "week" ? "past 7 days" : productRange === "month" ? "past 30 days" : "all time";
 
   return (
     <>
       <h2 className="text-lg font-semibold mb-2 mt-4">Sales Summary by Product</h2>
       <p className="text-xs text-gray-400 mb-3">Click a product to see its full sales history.</p>
+
+      <div className="flex gap-2 mb-2">
+        <input
+          type="text"
+          placeholder="Search product name..."
+          className="flex-1 p-2 border rounded text-sm"
+          value={productSearch}
+          onChange={e => setProductSearch(e.target.value)}
+        />
+        <select
+          value={productRange}
+          onChange={e => setProductRange(e.target.value)}
+          className="border rounded p-2 text-sm bg-white"
+        >
+          <option value="week">Past 7 days</option>
+          <option value="month">Past 30 days</option>
+          <option value="all">All time</option>
+        </select>
+      </div>
+      <p className="text-xs text-gray-400 mb-3">
+        Showing {summaries.length} product{summaries.length !== 1 ? "s" : ""} · {rangeLabel}
+      </p>
+
       <div className="space-y-3">
-        {Object.entries(productSummaries).length === 0 && (
-          <div className="text-sm text-gray-600">No product summary available.</div>
+        {summaries.length === 0 && (
+          <div className="text-sm text-gray-600">No sales found for this period.</div>
         )}
-        {Object.entries(productSummaries).map(([name, s], i) => (
+        {summaries.map(([name, s]) => (
           <button
-            key={i}
+            key={name}
             onClick={() => setSelectedProduct(name)}
             className="w-full text-left border p-3 rounded bg-gray-50 hover:bg-blue-50 hover:border-blue-300 transition-colors"
           >
