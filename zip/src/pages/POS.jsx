@@ -266,6 +266,24 @@ export default function POS() {
 
   const lowStockProducts = products.filter(p => p.stock <= (p.lowStockThreshold ?? 2));
 
+  const customerCreditMap = {};
+  outstandingCredits.forEach(entry => {
+    const name = entry.customerName || "Unknown";
+    if (!customerCreditMap[name]) customerCreditMap[name] = { name, entries: [], totalOwed: 0 };
+    if (entry.isBulkGroup) {
+      const bulkTotal = entry.items.reduce((s, i) => s + i.total, 0);
+      const owed = bulkTotal - (entry.dwnPayment || 0);
+      customerCreditMap[name].entries.push({ owed, label: `Bulk (${entry.items.length} items)`, detail: entry.items.map(i => `${i.quantity}×${i.name}`).join(", ") });
+      customerCreditMap[name].totalOwed += owed;
+    } else {
+      const owed = entry.total - (entry.dwnPayment || 0);
+      customerCreditMap[name].entries.push({ owed, label: `${entry.quantity} × ${entry.name}`, detail: null });
+      customerCreditMap[name].totalOwed += owed;
+    }
+  });
+  const customerCredits = Object.values(customerCreditMap).sort((a, b) => b.totalOwed - a.totalOwed);
+  const grandCreditTotal = customerCredits.reduce((s, c) => s + c.totalOwed, 0);
+
   return (
     <div className="p-4 pb-8 flex gap-4">
       <div className="max-w-xl flex-shrink-0">
@@ -395,32 +413,13 @@ export default function POS() {
 
       {/* Column 3: Outstanding Credit Sales grouped by customer */}
       <div className="flex flex-col gap-4 w-72 flex-shrink-0">
-        {outstandingCredits.length > 0 && (() => {
-          const customerMap = {};
-          outstandingCredits.forEach(entry => {
-            const name = (entry.isBulkGroup ? entry.customerName : entry.customerName) || "Unknown";
-            if (!customerMap[name]) customerMap[name] = { name, entries: [], totalOwed: 0 };
-            if (entry.isBulkGroup) {
-              const bulkTotal = entry.items.reduce((s, i) => s + i.total, 0);
-              const owed = bulkTotal - (entry.dwnPayment || 0);
-              customerMap[name].entries.push({ ...entry, owed, label: `Bulk (${entry.items.length} items)`, detail: entry.items.map(i => `${i.quantity}×${i.name}`).join(", ") });
-              customerMap[name].totalOwed += owed;
-            } else {
-              const owed = entry.total - (entry.dwnPayment || 0);
-              customerMap[name].entries.push({ ...entry, owed, label: `${entry.quantity} × ${entry.name}`, detail: null });
-              customerMap[name].totalOwed += owed;
-            }
-          });
-          const customers = Object.values(customerMap).sort((a, b) => b.totalOwed - a.totalOwed);
-          const grandTotal = customers.reduce((s, c) => s + c.totalOwed, 0);
-
-          return (
+        {customerCredits.length > 0 && (
           <div className="bg-yellow-50 border border-yellow-300 p-4 rounded">
             <h2 className="text-lg font-semibold text-yellow-700 mb-2">
-              Outstanding Credits ({customers.length} {customers.length === 1 ? "customer" : "customers"})
+              Outstanding Credits ({customerCredits.length} {customerCredits.length === 1 ? "customer" : "customers"})
             </h2>
             <div className="space-y-3">
-              {customers.map(customer => (
+              {customerCredits.map(customer => (
                 <div key={customer.name} className="bg-white border border-yellow-200 rounded p-2 text-sm">
                   <div className="font-semibold text-gray-800 mb-1">{customer.name}</div>
                   {customer.entries.map((e, i) => (
@@ -433,10 +432,10 @@ export default function POS() {
               ))}
             </div>
             <div className="mt-2 pt-2 border-t border-yellow-300 text-sm font-semibold text-yellow-800">
-              Grand total owed: KES {grandTotal}
+              Grand total owed: KES {grandCreditTotal}
             </div>
           </div>
-        })()}
+        )}
       </div>
     </div>
   );
