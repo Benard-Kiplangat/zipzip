@@ -6,3 +6,9 @@ id = "42AZrGW8wQhuTdELq-NEk"
 uri = "file://boscopos-dist.zip"
 type = "unspecified"
 title = "BoscoPOS dist (boscopos-dist.zip)"
+
+[[outputs]]
+id = "ATYlhIdx0CP2hhLWndnio"
+uri = "file://boscopos-dist.tar.gz"
+type = "unspecified"
+title = "BoscoPOS dist folder"
