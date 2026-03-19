@@ -192,12 +192,15 @@ export default function Sales() {
 
   const isSelected = (sale) => selectedSales.find(s => s._id === sale._id);
 
-  const filteredSales = salesSearch.trim()
-    ? sales.filter(s =>
-        s.name?.toLowerCase().includes(salesSearch.toLowerCase()) ||
-        s.customerName?.toLowerCase().includes(salesSearch.toLowerCase())
-      )
-    : sales;
+  const filteredSales = (() => {
+    const q = salesSearch.trim().toLowerCase();
+    if (!q) return sales;
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    return allSales.filter(s =>
+      new Date(s.timestamp).getTime() >= cutoff &&
+      (s.name?.toLowerCase().includes(q) || s.customerName?.toLowerCase().includes(q))
+    ).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  })();
 
   return (
     <div className="p-4 pb-32 max-w-xl">
@@ -232,7 +235,7 @@ export default function Sales() {
 
             <input
               type="text"
-              placeholder="Search by product or customer name..."
+              placeholder="Search past 30 days by product or customer..."
               className="w-full mb-2 p-2 border rounded text-sm"
               value={salesSearch}
               onChange={e => setSalesSearch(e.target.value)}
