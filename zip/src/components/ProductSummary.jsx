@@ -15,7 +15,7 @@ function buildProductHistory(allSales, productName) {
       const totalQty = sales.reduce((s, x) => s + x.quantity, 0);
       const totalRevenue = sales.reduce((s, x) => s + x.total, 0);
       const totalProfit = sales.reduce((s, x) => s + x.profit, 0);
-      return { date, sales: sales.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)), totalQty, totalRevenue, totalProfit };
+      return { date, sales: sales.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)), totalQty, totalRevenue, totalProfit };
     })
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 }
