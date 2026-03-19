@@ -27,7 +27,7 @@ function groupSales(sales) {
   return result;
 }
 
-function BulkSaleGroup({ group, handleEditSale, handleDeleteSale, handleDeleteSaleWithStockRestore }) {
+function BulkSaleGroup({ group, handleEditSale, handleDeleteSale, handleDeleteSaleWithStockRestore, handleMarkBulkPaid }) {
   const totalAmount = group.items.reduce((sum, s) => sum + s.total, 0);
   const totalProfit = group.items.reduce((sum, s) => sum + s.profit, 0);
   const totalQty = group.items.reduce((sum, s) => sum + s.quantity, 0);
@@ -35,6 +35,7 @@ function BulkSaleGroup({ group, handleEditSale, handleDeleteSale, handleDeleteSa
   const customerName = group.items[0]?.customerName || "";
   const bulkDwnPayment = group.items[0]?.bulkDwnPayment || 0;
   const amountOwed = totalAmount - bulkDwnPayment;
+  const isPaid = group.items[0]?.isCreditPaid || false;
 
   const borderClass = isCreditSale ? "border-red-400 bg-red-50" : "border-purple-400 bg-purple-50";
   const badgeBg = isCreditSale ? "bg-red-600" : "bg-purple-600";
@@ -60,13 +61,22 @@ function BulkSaleGroup({ group, handleEditSale, handleDeleteSale, handleDeleteSa
       </div>
 
       {isCreditSale && (
-        <div className="mb-2 text-sm bg-white rounded p-2 border border-red-200">
-          {bulkDwnPayment > 0
-            ? <><span className="text-gray-600">Down: KES {bulkDwnPayment} | </span><span className="text-red-600 font-medium">Owes: KES {amountOwed}</span></>
-            : <span className="text-red-600 font-medium">Owes full: KES {totalAmount} (no down payment)</span>
-          }
-          {group.items[0]?.isCreditPaid && (
-            <span className="ml-2 text-green-600 font-bold">PAID</span>
+        <div className="mb-2 text-sm bg-white rounded p-2 border border-red-200 flex justify-between items-center gap-2">
+          <div>
+            {isPaid
+              ? <span className="text-green-600 font-bold">PAID</span>
+              : bulkDwnPayment > 0
+                ? <><span className="text-gray-600">Down: KES {bulkDwnPayment} | </span><span className="text-red-600 font-medium">Owes: KES {amountOwed}</span></>
+                : <span className="text-red-600 font-medium">Owes full: KES {totalAmount} (no down payment)</span>
+            }
+          </div>
+          {isCreditSale && !isPaid && (
+            <button
+              onClick={() => handleMarkBulkPaid(group.items)}
+              className="bg-green-600 text-white text-xs px-2 py-1 rounded hover:bg-green-700 whitespace-nowrap flex-shrink-0"
+            >
+              Mark All Paid
+            </button>
           )}
         </div>
       )}
@@ -109,6 +119,7 @@ export default function SaleList({
   handleEditSale,
   handleDeleteSale,
   handleDeleteSaleWithStockRestore,
+  handleMarkBulkPaid,
 }) {
   const grouped = groupSales(sales);
 
@@ -127,7 +138,7 @@ export default function SaleList({
               return (
                 <div key={`credit-bulk-${entry.bulkSaleId}`} className="max-w-xl px-3 pt-2 pb-2 rounded border bg-red-50">
                   <div className="flex justify-between items-start">
-                    <div>
+                    <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded">BULK CREDIT</span>
                         <span className="font-semibold">{entry.items[0]?.customerName || <span className="italic text-gray-400">No name</span>}</span>
@@ -139,16 +150,20 @@ export default function SaleList({
                         Total: KES {bulkTotal}
                         {bulkDwnPayment > 0 && ` | Paid: KES ${bulkDwnPayment} | Owes: KES ${amountOwed}`}
                       </div>
-                      <div className="mt-1 flex gap-2">
-                        {entry.items.map((s, i) => (
-                          <button key={i} onClick={() => handleEditSale(s)} className="text-green-600 text-sm">Edit {s.name}</button>
-                        ))}
-                      </div>
                     </div>
-                    <div className="text-sm flex-shrink-0 ml-2">
+                    <div className="flex flex-col items-end gap-1 ml-2 flex-shrink-0">
                       {isPaid
-                        ? <span className="text-green-600 font-semibold">PAID</span>
-                        : <span className="text-red-600 font-semibold">UNPAID</span>}
+                        ? <span className="text-green-600 font-semibold text-sm">PAID</span>
+                        : <>
+                            <span className="text-red-600 font-semibold text-sm">UNPAID</span>
+                            <button
+                              onClick={() => handleMarkBulkPaid(entry.items)}
+                              className="bg-green-600 text-white text-xs px-2 py-1 rounded hover:bg-green-700 whitespace-nowrap"
+                            >
+                              Mark Paid
+                            </button>
+                          </>
+                      }
                     </div>
                   </div>
                 </div>
@@ -201,9 +216,7 @@ export default function SaleList({
               handleEditSale={handleEditSale}
               handleDeleteSale={handleDeleteSale}
               handleDeleteSaleWithStockRestore={handleDeleteSaleWithStockRestore}
-              selectedSales={selectedSales}
-              toggleSaleSelection={toggleSaleSelection}
-              isSelected={isSelected}
+              handleMarkBulkPaid={handleMarkBulkPaid}
             />
           );
         }

@@ -264,7 +264,7 @@ export default function POS() {
     p.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const lowStockProducts = products.filter(p => p.stock <= 2);
+  const lowStockProducts = products.filter(p => p.stock <= (p.lowStockThreshold ?? 2));
 
   return (
     <div className="p-4 pb-8 flex gap-4">
@@ -393,62 +393,50 @@ export default function POS() {
         )}
       </div>
 
-      {/* Column 3: Outstanding Credit Sales */}
+      {/* Column 3: Outstanding Credit Sales grouped by customer */}
       <div className="flex flex-col gap-4 w-72 flex-shrink-0">
-        {outstandingCredits.length > 0 && (
+        {outstandingCredits.length > 0 && (() => {
+          const customerMap = {};
+          outstandingCredits.forEach(entry => {
+            const name = (entry.isBulkGroup ? entry.customerName : entry.customerName) || "Unknown";
+            if (!customerMap[name]) customerMap[name] = { name, entries: [], totalOwed: 0 };
+            if (entry.isBulkGroup) {
+              const bulkTotal = entry.items.reduce((s, i) => s + i.total, 0);
+              const owed = bulkTotal - (entry.dwnPayment || 0);
+              customerMap[name].entries.push({ ...entry, owed, label: `Bulk (${entry.items.length} items)`, detail: entry.items.map(i => `${i.quantity}×${i.name}`).join(", ") });
+              customerMap[name].totalOwed += owed;
+            } else {
+              const owed = entry.total - (entry.dwnPayment || 0);
+              customerMap[name].entries.push({ ...entry, owed, label: `${entry.quantity} × ${entry.name}`, detail: null });
+              customerMap[name].totalOwed += owed;
+            }
+          });
+          const customers = Object.values(customerMap).sort((a, b) => b.totalOwed - a.totalOwed);
+          const grandTotal = customers.reduce((s, c) => s + c.totalOwed, 0);
+
+          return (
           <div className="bg-yellow-50 border border-yellow-300 p-4 rounded">
             <h2 className="text-lg font-semibold text-yellow-700 mb-2">
-              Outstanding Credit Sales ({outstandingCredits.length})
+              Outstanding Credits ({customers.length} {customers.length === 1 ? "customer" : "customers"})
             </h2>
-            <div className="space-y-2">
-              {outstandingCredits.map((entry, idx) => {
-                if (entry.isBulkGroup) {
-                  const bulkTotal = entry.items.reduce((sum, s) => sum + s.total, 0);
-                  const amountOwed = bulkTotal - (entry.dwnPayment || 0);
-                  return (
-                    <div key={`bulk-${entry.bulkSaleId}`} className="bg-white border border-purple-200 rounded p-2 text-sm">
-                      <div className="flex items-center gap-1 mb-1">
-                        <span className="bg-purple-600 text-white text-xs font-bold px-1.5 py-0.5 rounded">BULK</span>
-                        <span className="font-semibold text-gray-800">
-                          {entry.customerName || <span className="italic text-gray-400">No name</span>}
-                        </span>
-                      </div>
-                      <div className="text-gray-500 text-xs">{entry.items.length} items — {entry.items.map(i => i.name).join(", ")}</div>
-                      <div className="text-red-600 font-medium mt-1">Owes: KES {amountOwed}</div>
-                      {entry.dwnPayment > 0 && (
-                        <div className="text-gray-400 text-xs">Paid down: KES {entry.dwnPayment}</div>
-                      )}
+            <div className="space-y-3">
+              {customers.map(customer => (
+                <div key={customer.name} className="bg-white border border-yellow-200 rounded p-2 text-sm">
+                  <div className="font-semibold text-gray-800 mb-1">{customer.name}</div>
+                  {customer.entries.map((e, i) => (
+                    <div key={i} className="text-gray-600 text-xs">
+                      {e.label}{e.detail ? ` — ${e.detail}` : ""}: KES {e.owed}
                     </div>
-                  );
-                }
-
-                const sale = entry;
-                const amountOwed = sale.total - (sale.dwnPayment || 0);
-                return (
-                  <div key={sale._id || idx} className="bg-white border border-yellow-200 rounded p-2 text-sm">
-                    <div className="font-semibold text-gray-800">
-                      {sale.customerName || <span className="italic text-gray-400">No name</span>}
-                    </div>
-                    <div className="text-gray-600">{sale.quantity} × {sale.name}</div>
-                    <div className="text-red-600 font-medium">Owes: KES {amountOwed}</div>
-                    {sale.dwnPayment > 0 && (
-                      <div className="text-gray-400 text-xs">Paid down: KES {sale.dwnPayment}</div>
-                    )}
-                  </div>
-                );
-              })}
+                  ))}
+                  <div className="text-red-600 font-bold mt-1">Total: KES {customer.totalOwed}</div>
+                </div>
+              ))}
             </div>
             <div className="mt-2 pt-2 border-t border-yellow-300 text-sm font-semibold text-yellow-800">
-              Total owed: KES {outstandingCredits.reduce((sum, entry) => {
-                if (entry.isBulkGroup) {
-                  const bulkTotal = entry.items.reduce((s, i) => s + i.total, 0);
-                  return sum + bulkTotal - (entry.dwnPayment || 0);
-                }
-                return sum + entry.total - (entry.dwnPayment || 0);
-              }, 0)}
+              Grand total owed: KES {grandTotal}
             </div>
           </div>
-        )}
+        })()}
       </div>
     </div>
   );

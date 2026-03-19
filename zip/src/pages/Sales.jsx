@@ -11,7 +11,6 @@ import ProductSummary from "../components/ProductSummary";
 export default function Sales() {
   const [sales, setSales] = useState([]);
   const [selectedDate, setSelectedDate] = useState(() => {
-    // default to today in yyyy-mm-dd format for the date input
     const d = new Date();
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -22,10 +21,11 @@ export default function Sales() {
   const [showCreditList, setShowCreditList] = useState(false);
   const [productSummaries, setProductSummaries] = useState({});
   const [summary, setSummary] = useState({ totalSales: 0, totalRevenue: 0, totalProfit: 0 });
-  const [viewMode, setViewMode] = useState("todaySales"); // "todaySales", "productSummary", "weekly", "monthly"
+  const [viewMode, setViewMode] = useState("todaySales");
   const [groupedSummaries, setGroupedSummaries] = useState({});
   const [selectedSales, setSelectedSales] = useState([]);
   const [allSales, setAllSales] = useState([]);
+  const [salesSearch, setSalesSearch] = useState("");
 
   useEffect(() => {
     loadSales();
@@ -35,13 +35,10 @@ export default function Sales() {
     const result = await db.allDocs({ include_docs: true });
     const salesDocs = result.rows.map(row => row.doc).filter(doc => doc.type === "sale");
     setAllSales(salesDocs);
-    // Use the provided dateStr (yyyy-mm-dd) or the selectedDate state value
     const usedDate = dateStr || selectedDate;
-    // Convert yyyy-mm-dd -> Date and then to locale date string for comparison
     const [y, m, d] = usedDate.split('-').map(Number);
     const today = new Date(y, m - 1, d).toLocaleDateString();
 
-    // Filter only today
     const todaySales = salesDocs.filter(sale =>
       new Date(sale.timestamp).toLocaleDateString() === today
     );
@@ -49,18 +46,14 @@ export default function Sales() {
     calculateSummary(todaySales);
     setSales(todaySales);
 
-    // Group sales by date for summaries
     const grouped = {};
     salesDocs.forEach(sale => {
       const dateKey = new Date(sale.timestamp).toLocaleDateString();
-      if (!grouped[dateKey]) {
-        grouped[dateKey] = [];
-      }
+      if (!grouped[dateKey]) grouped[dateKey] = [];
       grouped[dateKey].push(sale);
     });
 
     const productSummary = {};
-
     todaySales.forEach(sale => {
       if (!productSummary[sale.name]) {
         productSummary[sale.name] = { quantity: 0, revenue: 0, profit: 0 };
@@ -69,23 +62,19 @@ export default function Sales() {
       productSummary[sale.name].revenue += sale.total;
       productSummary[sale.name].profit += sale.total - (sale.costPrice * sale.quantity);
     });
-
     setProductSummaries(productSummary);
 
     const summaryByDate = {};
     for (let date in grouped) {
       const totalCreditSales = handleTotalCreditSales(grouped[date]);
-      const total = grouped[date].reduce((acc, sale) => {
-        return {
-          totalSales: acc.totalSales + sale.quantity,
-          totalRevenue: acc.totalRevenue + sale.total,
-          creditSales: totalCreditSales,
-          totalProfit: acc.totalProfit + (sale.total - sale.costPrice * sale.quantity)
-        };
-      }, { totalSales: 0, totalRevenue: 0, creditSales: 0, totalProfit: 0 });
+      const total = grouped[date].reduce((acc, sale) => ({
+        totalSales: acc.totalSales + sale.quantity,
+        totalRevenue: acc.totalRevenue + sale.total,
+        creditSales: totalCreditSales,
+        totalProfit: acc.totalProfit + (sale.total - sale.costPrice * sale.quantity)
+      }), { totalSales: 0, totalRevenue: 0, creditSales: 0, totalProfit: 0 });
       summaryByDate[date] = total;
     }
-
     setGroupedSummaries(summaryByDate);
   };
 
@@ -107,7 +96,6 @@ export default function Sales() {
   };
 
   const handleEditSale = async (sale) => {
-    // Open edit modal with a shallow copy
     setEditingSale({
       ...sale,
       quantity: Number(sale.quantity) || 0,
@@ -132,10 +120,7 @@ export default function Sales() {
 
   const handleSaveEdit = async () => {
     if (!editingSale) return;
-    if (!editingSale.name) {
-      alert('Product name is required');
-      return;
-    }
+    if (!editingSale.name) { alert('Product name is required'); return; }
     const toSave = {
       ...editingSale,
       quantity: Number(editingSale.quantity),
@@ -149,7 +134,6 @@ export default function Sales() {
     try {
       await db.put(toSave);
       setEditingSale(null);
-      // reload using current selectedDate
       loadSales();
     } catch (err) {
       console.error('Failed to save sale', err);
@@ -160,29 +144,40 @@ export default function Sales() {
   const handleCancelEdit = () => setEditingSale(null);
 
   const handleTotalCreditSales = (salesList) => {
-    const totalCreditSales = salesList.filter((x) => x.isCreditSale).reduce((sum, s) => sum + s.total, 0) - summary.totalDownPayment;
-    return totalCreditSales;
-  }
+    return salesList.filter((x) => x.isCreditSale).reduce((sum, s) => sum + s.total, 0) - summary.totalDownPayment;
+  };
+
+  const handleMarkBulkPaid = async (items) => {
+    if (!window.confirm(`Mark all ${items.length} items in this bulk credit as paid?`)) return;
+    const bulkTotal = items.reduce((sum, s) => sum + s.total, 0);
+    try {
+      for (const item of items) {
+        await db.put({
+          ...item,
+          isCreditPaid: true,
+          dwnPayment: bulkTotal,
+          bulkDwnPayment: bulkTotal,
+        });
+      }
+      loadSales();
+    } catch (err) {
+      console.error('Failed to mark bulk as paid', err);
+      alert('Something went wrong. Please try again.');
+    }
+  };
 
   const handleDeleteSaleWithStockRestore = async (sale) => {
     const confirmed = window.confirm("Delete this sale and update stock?");
     if (!confirmed) return;
-
-    // Get all stock items
     const result = await db.allDocs({ include_docs: true });
     const stockDocs = result.rows.map(row => row.doc).filter(doc => doc.type === "product");
-
-    // Find the stock item by name
     const stockItem = stockDocs.find(item => item.name === sale.name);
-
     if (stockItem) {
       stockItem.stock += sale.quantity;
       await db.put(stockItem);
     } else {
       alert("No matching stock item found to update.");
     }
-
-    // Delete the sale
     await db.remove(sale);
     loadSales();
   };
@@ -197,45 +192,36 @@ export default function Sales() {
 
   const isSelected = (sale) => selectedSales.find(s => s._id === sale._id);
 
+  const filteredSales = salesSearch.trim()
+    ? sales.filter(s =>
+        s.name?.toLowerCase().includes(salesSearch.toLowerCase()) ||
+        s.customerName?.toLowerCase().includes(salesSearch.toLowerCase())
+      )
+    : sales;
+
   return (
     <div className="p-4 pb-32 max-w-xl">
       <h1 className="text-xl font-bold mb-4">Today's Sales</h1>
 
-      <div className="flex space-x-2 mb-6">
-        <button
-          onClick={() => setViewMode("todaySales")}
-          className={`px-3 py-1 rounded ${viewMode === "todaySales" ? "bg-blue-600 text-white" : "bg-gray-200"}`} >
-          Daily Sales
-        </button>
-        <button
-          onClick={() => setViewMode("productSummary")}
-          className={`px-3 py-1 rounded ${viewMode === "productSummary" ? "bg-blue-600 text-white" : "bg-gray-200"}`} >
-          Daily Summaries by Product
-        </button>
-        <button
-          onClick={() => setViewMode("weekly")}
-          className={`px-3 py-1 rounded ${viewMode === "weekly" ? "bg-blue-600 text-white" : "bg-gray-200"}`} >
-          Weekly
-        </button>
-        <button
-          onClick={() => setViewMode("monthly")}
-          className={`px-3 py-1 rounded ${viewMode === "monthly" ? "bg-blue-600 text-white" : "bg-gray-200"}`} >
-          Monthly
-        </button>
+      <div className="flex flex-wrap gap-2 mb-6">
+        <button onClick={() => setViewMode("todaySales")} className={`px-3 py-1 rounded ${viewMode === "todaySales" ? "bg-blue-600 text-white" : "bg-gray-200"}`}>Daily Sales</button>
+        <button onClick={() => setViewMode("productSummary")} className={`px-3 py-1 rounded ${viewMode === "productSummary" ? "bg-blue-600 text-white" : "bg-gray-200"}`}>Daily Summaries by Product</button>
+        <button onClick={() => setViewMode("weekly")} className={`px-3 py-1 rounded ${viewMode === "weekly" ? "bg-blue-600 text-white" : "bg-gray-200"}`}>Weekly</button>
+        <button onClick={() => setViewMode("monthly")} className={`px-3 py-1 rounded ${viewMode === "monthly" ? "bg-blue-600 text-white" : "bg-gray-200"}`}>Monthly</button>
       </div>
 
       {viewMode === "todaySales" && (
         <div>
           <div className="space-y-2">
             Date: <input className="bg-red-500" type="date" name="datePick" id="datePick" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); loadSales(e.target.value); }} />
-            <div className="mb-6">
+            <div className="mb-4">
               <div>No. of Items Sold: {summary.totalSales}</div>
               <div>Total Revenue: KES {summary.totalRevenue}</div>
               <div>Total Due Sales: KES {summary.totalCreditSales}</div>
               <div>Total Profit: KES {summary.totalProfit}</div>
             </div>
 
-            <div>
+            <div className="flex gap-2 items-center mb-2">
               <button
                 onClick={() => setShowCreditList(prev => !prev)}
                 className="px-3 py-1 rounded bg-yellow-400 text-black"
@@ -244,8 +230,16 @@ export default function Sales() {
               </button>
             </div>
 
+            <input
+              type="text"
+              placeholder="Search by product or customer name..."
+              className="w-full mb-2 p-2 border rounded text-sm"
+              value={salesSearch}
+              onChange={e => setSalesSearch(e.target.value)}
+            />
+
             <SaleList
-              sales={sales}
+              sales={filteredSales}
               showCreditList={showCreditList}
               setShowCreditList={setShowCreditList}
               selectedSales={selectedSales}
@@ -254,6 +248,7 @@ export default function Sales() {
               handleEditSale={handleEditSale}
               handleDeleteSale={handleDeleteSale}
               handleDeleteSaleWithStockRestore={handleDeleteSaleWithStockRestore}
+              handleMarkBulkPaid={handleMarkBulkPaid}
             />
 
             <EditSaleModal
@@ -270,8 +265,6 @@ export default function Sales() {
         <ProductSummary productSummaries={productSummaries} allSales={allSales} />
       )}
 
-      {/* All Date Summaries tab removed — not needed anymore */}
-
       {viewMode === "weekly" && (
         <WeeklySummary allSales={allSales} selectedDate={selectedDate} />
       )}
@@ -280,5 +273,5 @@ export default function Sales() {
         <MonthlySummary allSales={allSales} selectedDate={selectedDate} />
       )}
     </div>
-  )
+  );
 }
