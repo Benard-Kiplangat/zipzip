@@ -26,6 +26,7 @@ export default function Sales() {
   const [selectedSales, setSelectedSales] = useState([]);
   const [allSales, setAllSales] = useState([]);
   const [salesSearch, setSalesSearch] = useState("");
+  const [searchRange, setSearchRange] = useState("week");
 
   useEffect(() => {
     loadSales();
@@ -195,7 +196,9 @@ export default function Sales() {
   const filteredSales = (() => {
     const q = salesSearch.trim().toLowerCase();
     if (!q) return sales;
-    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    let cutoff = 0;
+    if (searchRange === "week") cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    else if (searchRange === "month") cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
     return allSales.filter(s =>
       new Date(s.timestamp).getTime() >= cutoff &&
       (s.name?.toLowerCase().includes(q) || s.customerName?.toLowerCase().includes(q))
@@ -233,13 +236,29 @@ export default function Sales() {
               </button>
             </div>
 
-            <input
-              type="text"
-              placeholder="Search past 30 days by product or customer..."
-              className="w-full mb-2 p-2 border rounded text-sm"
-              value={salesSearch}
-              onChange={e => setSalesSearch(e.target.value)}
-            />
+            <div className="flex gap-2 mb-2">
+              <input
+                type="text"
+                placeholder="Search by product or customer..."
+                className="flex-1 p-2 border rounded text-sm"
+                value={salesSearch}
+                onChange={e => setSalesSearch(e.target.value)}
+              />
+              <select
+                value={searchRange}
+                onChange={e => setSearchRange(e.target.value)}
+                className="border rounded p-2 text-sm bg-white"
+              >
+                <option value="week">Past 7 days</option>
+                <option value="month">Past 30 days</option>
+                <option value="all">All time</option>
+              </select>
+            </div>
+            {salesSearch.trim() && (
+              <div className="text-xs text-gray-500 mb-2">
+                {filteredSales.length} result{filteredSales.length !== 1 ? "s" : ""} found
+              </div>
+            )}
 
             <SaleList
               sales={filteredSales}
