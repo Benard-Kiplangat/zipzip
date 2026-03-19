@@ -400,7 +400,7 @@ export default function POS() {
             <h2 className="text-lg font-semibold text-yellow-700 mb-2">
               Outstanding Credit Sales ({outstandingCredits.length})
             </h2>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
+            <div className="space-y-2">
               {outstandingCredits.map((entry, idx) => {
                 if (entry.isBulkGroup) {
                   const bulkTotal = entry.items.reduce((sum, s) => sum + s.total, 0);

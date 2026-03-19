@@ -1,14 +1,24 @@
 import React from "react";
 
-export default function WeeklySummary({ allSales = [], selectedDate }) {
-  const endDate = selectedDate ? new Date(selectedDate) : new Date();
+function getMondayOfWeek(dateStr) {
+  const d = dateStr ? new Date(dateStr) : new Date();
+  d.setHours(0, 0, 0, 0);
+  const day = d.getDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diffToMonday);
+  return d;
+}
 
-  // build 7-day window ending on selectedDate (inclusive)
+export default function WeeklySummary({ allSales = [], selectedDate }) {
+  const monday = getMondayOfWeek(selectedDate);
+
   const days = Array.from({ length: 7 }).map((_, i) => {
-    const d = new Date(endDate);
-    d.setDate(endDate.getDate() - (6 - i));
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
     return d;
   });
+
+  const sunday = days[6];
 
   const rows = days.map(d => {
     const key = d.toLocaleDateString();
@@ -19,7 +29,8 @@ export default function WeeklySummary({ allSales = [], selectedDate }) {
     const creditGross = salesForDay.filter(s => s.isCreditSale).reduce((sum, s) => sum + (s.total || 0), 0);
     const creditDown = salesForDay.filter(s => s.isCreditSale).reduce((sum, s) => sum + (s.dwnPayment || 0), 0);
     const creditDue = creditGross - creditDown;
-    return { date: key, totalSales, totalRevenue, totalProfit, creditDue };
+    const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+    return { date: key, dayName, totalSales, totalRevenue, totalProfit, creditDue };
   });
 
   const totals = rows.reduce((acc, r) => ({
@@ -29,18 +40,28 @@ export default function WeeklySummary({ allSales = [], selectedDate }) {
     totalCreditDue: acc.totalCreditDue + (r.creditDue || 0),
   }), { totalSales: 0, totalRevenue: 0, totalProfit: 0, totalCreditDue: 0 });
 
+  const fmt = d => d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-2 mt-4">7-Day Sales (ending {new Date(endDate).toLocaleDateString()})</h2>
+      <h2 className="text-lg font-semibold mb-1 mt-4">Weekly Summary</h2>
+      <p className="text-sm text-gray-500 mb-3">
+        Mon {fmt(monday)} — Sun {fmt(sunday)}
+      </p>
       <div className="space-y-2">
-        {[...rows].reverse().map((r, i) => (
-          <div key={i} className="border p-3 rounded bg-gray-50 flex justify-between">
-            <div>{r.date}</div>
-            <div className="text-sm">Credit Due: KES {r.creditDue} | Revenue: KES {r.totalRevenue} | Profit: KES {r.totalProfit}</div>
+        {rows.map((r, i) => (
+          <div key={i} className={`border p-3 rounded flex justify-between ${r.totalSales === 0 ? 'bg-gray-50 text-gray-400' : 'bg-white'}`}>
+            <div className="font-medium w-24">{r.dayName} <span className="text-xs font-normal">{r.date}</span></div>
+            <div className="text-sm text-right">
+              {r.totalSales === 0
+                ? <span className="italic">No sales</span>
+                : <>Credit Due: KES {r.creditDue} | Revenue: KES {r.totalRevenue} | Profit: KES {r.totalProfit}</>
+              }
+            </div>
           </div>
         ))}
-        <div className="mt-3 p-3 border rounded bg-white">
-          <div className="font-semibold">Week Totals</div>
+        <div className="mt-3 p-3 border rounded bg-yellow-50">
+          <div className="font-semibold mb-1">Week Totals</div>
           <div>Total Credit Due: KES {totals.totalCreditDue}</div>
           <div>Total Revenue: KES {totals.totalRevenue}</div>
           <div>Total Profit: KES {totals.totalProfit}</div>
