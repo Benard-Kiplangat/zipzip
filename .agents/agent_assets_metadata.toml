@@ -5,7 +5,7 @@ generated = []
 id = "42AZrGW8wQhuTdELq-NEk"
 uri = "file://boscopos-dist.zip"
 type = "unspecified"
-title = "BoscoPOS dist (boscopos-dist.zip)"
+title = "BoscoPOS dist folder"
 
 [[outputs]]
 id = "ATYlhIdx0CP2hhLWndnio"
