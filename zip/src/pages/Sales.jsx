@@ -7,6 +7,7 @@ import MonthlySummary from "../components/MonthlySummary";
 import SaleList from "../components/SaleList";
 import EditSaleModal from "../components/EditSaleModal";
 import ProductSummary from "../components/ProductSummary";
+import { useAuth } from "../context/AuthContext";
 
 export default function Sales() {
   const [sales, setSales] = useState([]);
@@ -80,7 +81,7 @@ export default function Sales() {
   };
 
   const calculateSummary = (salesList) => {
-    const totalDownPayment = salesList.filter((x) => x.isCreditSale).reduce((sum, s) => sum + s.dwnPayment || 0, 0);
+    const totalDownPayment = salesList.filter((x) => x.isCreditSale).reduce((sum, s) => sum + (s.dwnPayment || 0), 0);
     const totalExpectedCreditProfit = salesList.filter((x) => x.isCreditSale).reduce((sum, s) => sum + s.profit, 0);
     const totalSales = salesList.reduce((sum, s) => sum + s.quantity, 0);
     const totalCreditSales = salesList.filter((x) => x.isCreditSale).reduce((sum, s) => sum + s.total, 0) - totalDownPayment;
@@ -145,7 +146,10 @@ export default function Sales() {
   const handleCancelEdit = () => setEditingSale(null);
 
   const handleTotalCreditSales = (salesList) => {
-    return salesList.filter((x) => x.isCreditSale).reduce((sum, s) => sum + s.total, 0) - summary.totalDownPayment;
+    const creditSales = salesList.filter((x) => x.isCreditSale);
+    const total = creditSales.reduce((sum, s) => sum + (s.total || 0), 0);
+    const down = creditSales.reduce((sum, s) => sum + (s.dwnPayment || 0), 0);
+    return total - down;
   };
 
   const handleMarkBulkPaid = async (items) => {
@@ -156,7 +160,7 @@ export default function Sales() {
         await db.put({
           ...item,
           isCreditPaid: true,
-          dwnPayment: bulkTotal,
+          dwnPayment: item.total,
           bulkDwnPayment: bulkTotal,
         });
       }
@@ -205,6 +209,8 @@ export default function Sales() {
     ).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   })();
 
+  const { canViewProfit } = useAuth();
+
   return (
     <div className="p-4 pb-32 max-w-xl">
       <h1 className="text-xl font-bold mb-4">Today's Sales</h1>
@@ -224,7 +230,9 @@ export default function Sales() {
               <div>No. of Items Sold: {summary.totalSales}</div>
               <div>Total Revenue: KES {summary.totalRevenue}</div>
               <div>Total Due Sales: KES {summary.totalCreditSales}</div>
-              <div>Total Profit: KES {summary.totalProfit}</div>
+              {canViewProfit && (
+                <div>Total Profit: KES {summary.totalProfit}</div>
+              )}
             </div>
 
             <div className="flex gap-2 items-center mb-2">

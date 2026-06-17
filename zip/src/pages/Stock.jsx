@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../db";
-import StockPinLogin from "../components/StockPinLogin";
 import SyncButton from "../components/SyncButton";
 
 export default function Stock() {
@@ -9,7 +8,6 @@ export default function Stock() {
   const [form, setForm] = useState({ name: "", costPrice: "", sellingPrice: "", stock: "", lowStockThreshold: "", id: null });
   const [totalCostValue, setTotalCostValue] = useState(0);
   const [totalSaleValue, setTotalSaleValue] = useState(0);
-  const [authenticated, setAuthenticated] = useState(false);
 
   useEffect(() => {
     loadProducts();
@@ -96,15 +94,12 @@ export default function Stock() {
 
   return (
     <div className="max-w-xl px-4 pb-32">
-      {!authenticated ? (
-        <StockPinLogin onSuccess={() => setAuthenticated(true)} />
-      ) : (
-        <div className="pb-4">
-          <div>Total Stock Value: KES {totalCostValue}</div>
-          <div>Total Sales Value: KES {totalSaleValue}</div>
+      <div className="pb-4">
+        <div>Total Stock Value: KES {totalCostValue}</div>
+        <div>Total Sales Value: KES {totalSaleValue}</div>
 
-          <SyncButton />
-          <div className="border-b mt-4"></div>
+        <SyncButton />
+        <div className="border-b mt-4"></div>
 
           <h2 className="text-xl font-bold my-4">Add/Update Products</h2>
           <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -165,7 +160,6 @@ export default function Stock() {
             ))}
           </div>
         </div>
-      )}
     </div>
   );
 }

@@ -13,13 +13,25 @@ export default function POS() {
   const [showLowStock, setShowLowStock] = useState(true);
   const [creditSales, setCreditSales] = useState({});
   const [customerNames, setCustomerNames] = useState({});
+  const [customers, setCustomers] = useState([]);
   const [cart, setCart] = useState([]);
   const [outstandingCredits, setOutstandingCredits] = useState([]);
 
   useEffect(() => {
     loadProducts();
     loadOutstandingCredits();
+    loadCustomers();
   }, []);
+
+  const loadCustomers = async () => {
+    try {
+      const result = await db.allDocs({ include_docs: true });
+      const custs = result.rows.map(r => r.doc).filter(d => d && d.type === 'customer');
+      setCustomers(custs);
+    } catch (e) {
+      console.error('failed to load customers', e);
+    }
+  };
 
   useEffect(() => {
     if (search && !fullLoaded) {
@@ -309,8 +321,8 @@ export default function POS() {
                     className="border p-1 w-16 rounded"
                     value={sellingPrices[product._id] || product.sellingPrice}
                     onChange={(e) =>
-                      setSellingPrices(prev => ({ ...prev, [product._id]: parseInt(e.target.value) }))
-                    }
+                        setSellingPrices(prev => ({ ...prev, [product._id]: Number(e.target.value) || 0 }))
+                      }
                   />
                   <input
                     type="number"
@@ -318,7 +330,7 @@ export default function POS() {
                     className="border p-1 w-12 rounded"
                     value={quantities[product._id] || 1}
                     onChange={(e) =>
-                      setQuantities(prev => ({ ...prev, [product._id]: parseInt(e.target.value) || 1 }))
+                      setQuantities(prev => ({ ...prev, [product._id]: parseInt(e.target.value, 10) || 1 }))
                     }
                   />
                   <div className="border p-1 w-16 rounded flex items-center gap-1">
@@ -355,9 +367,21 @@ export default function POS() {
 
               {creditSales[product._id] && (
                 <div className="flex gap-2 mt-2 flex-wrap">
+                  {customers.length > 0 && (
+                    <select
+                      className="border p-1 rounded min-w-32"
+                      value={customerNames[product._id] || ""}
+                      onChange={(e) => setCustomerNames(prev => ({ ...prev, [product._id]: e.target.value }))}
+                    >
+                      <option value="">Select customer (or type)</option>
+                      {customers.map(c => (
+                        <option key={c._id} value={c.name}>{c.name}</option>
+                      ))}
+                    </select>
+                  )}
                   <input
                     type="text"
-                    placeholder="Customer name"
+                    placeholder="Or enter customer name"
                     className="border p-1 rounded flex-1 min-w-32"
                     value={customerNames[product._id] || ""}
                     onChange={(e) =>
@@ -370,7 +394,7 @@ export default function POS() {
                     className="border p-1 w-24 rounded"
                     value={downPayment[product._id] || 0}
                     onChange={(e) =>
-                      setDownPayment(prev => ({ ...prev, [product._id]: parseInt(e.target.value) }))
+                      setDownPayment(prev => ({ ...prev, [product._id]: parseInt(e.target.value, 10) || 0 }))
                     }
                   />
                 </div>
@@ -389,6 +413,7 @@ export default function POS() {
           onRemoveItem={handleCartRemoveItem}
           onClearCart={handleCartClear}
           onMakeSale={handleCartSale}
+          customers={customers}
         />
 
         {showLowStock && lowStockProducts.length > 0 && (
