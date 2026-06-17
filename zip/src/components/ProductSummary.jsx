@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { useAuth } from "../context/AuthContext";
 
 function buildProductHistory(allSales, productName) {
   const relevant = allSales.filter(s => s.name === productName);
@@ -12,9 +13,9 @@ function buildProductHistory(allSales, productName) {
 
   return Object.entries(byDate)
     .map(([date, sales]) => {
-      const totalQty = sales.reduce((s, x) => s + x.quantity, 0);
-      const totalRevenue = sales.reduce((s, x) => s + x.total, 0);
-      const totalProfit = sales.reduce((s, x) => s + x.profit, 0);
+      const totalQty = sales.reduce((s, x) => s + (x.quantity || 0), 0);
+      const totalRevenue = sales.reduce((s, x) => s + (x.total || 0), 0);
+      const totalProfit = sales.reduce((s, x) => s + (x.profit != null ? x.profit : ((x.total || 0) - (x.costPrice || 0) * (x.quantity || 0))), 0);
       const latestTs = Math.max(...sales.map(s => new Date(s.timestamp).getTime()));
       return { date, sales: sales.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)), totalQty, totalRevenue, totalProfit, latestTs };
     })
@@ -23,9 +24,10 @@ function buildProductHistory(allSales, productName) {
 
 function ProductHistoryPanel({ productName, allSales, onClose }) {
   const history = useMemo(() => buildProductHistory(allSales, productName), [allSales, productName]);
-  const grandQty = history.reduce((s, d) => s + d.totalQty, 0);
-  const grandRevenue = history.reduce((s, d) => s + d.totalRevenue, 0);
-  const grandProfit = history.reduce((s, d) => s + d.totalProfit, 0);
+  const grandQty = history.reduce((s, d) => s + (d.totalQty || 0), 0);
+  const grandRevenue = history.reduce((s, d) => s + (d.totalRevenue || 0), 0);
+  const grandProfit = history.reduce((s, d) => s + (d.totalProfit || 0), 0);
+  const { canViewProfit } = useAuth();
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-start justify-center z-50 pt-10 px-4">
@@ -33,7 +35,10 @@ function ProductHistoryPanel({ productName, allSales, onClose }) {
         <div className="flex justify-between items-center p-4 border-b">
           <div>
             <h2 className="text-lg font-bold">{productName}</h2>
-            <p className="text-sm text-gray-500">All-time: {grandQty} units · KES {grandRevenue} revenue · KES {grandProfit} profit</p>
+            <p className="text-sm text-gray-500">
+              All-time: {grandQty} units · KES {grandRevenue} revenue
+              {canViewProfit && <> · KES {grandProfit} profit</>}
+            </p>
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-xl font-bold px-2">×</button>
         </div>
@@ -90,6 +95,7 @@ function ProductHistoryPanel({ productName, allSales, onClose }) {
 }
 
 export default function ProductSummary({ allSales = [] }) {
+  const { canViewProfit } = useAuth();
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [productSearch, setProductSearch] = useState("");
   const [productRange, setProductRange] = useState("week");
@@ -160,7 +166,7 @@ export default function ProductSummary({ allSales = [] }) {
             <div className="text-sm text-gray-600 mt-1 flex gap-4">
               <span>Sold: {s.quantity}</span>
               <span>Revenue: KES {s.revenue}</span>
-              <span>Profit: KES {s.profit}</span>
+              {canViewProfit && <span>Profit: KES {s.profit}</span>}
             </div>
           </button>
         ))}

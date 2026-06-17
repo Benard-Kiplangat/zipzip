@@ -1,5 +1,6 @@
 import React from "react";
 import { generateReceipt } from "../utils/generateReceipt";
+import { useAuth } from "../context/AuthContext";
 
 function groupSales(sales) {
   const reversed = [...sales].reverse();
@@ -28,9 +29,10 @@ function groupSales(sales) {
 }
 
 function BulkSaleGroup({ group, handleEditSale, handleDeleteSale, handleDeleteSaleWithStockRestore, handleMarkBulkPaid }) {
-  const totalAmount = group.items.reduce((sum, s) => sum + s.total, 0);
-  const totalProfit = group.items.reduce((sum, s) => sum + s.profit, 0);
-  const totalQty = group.items.reduce((sum, s) => sum + s.quantity, 0);
+  const { canViewProfit } = useAuth();
+  const totalAmount = group.items.reduce((sum, s) => sum + (s.total || 0), 0);
+  const totalProfit = group.items.reduce((sum, s) => sum + (s.profit || 0), 0);
+  const totalQty = group.items.reduce((sum, s) => sum + (s.quantity || 0), 0);
   const isCreditSale = group.items[0]?.isCreditSale || false;
   const customerName = group.items[0]?.customerName || "";
   const bulkDwnPayment = group.items[0]?.bulkDwnPayment || 0;
@@ -54,10 +56,12 @@ function BulkSaleGroup({ group, handleEditSale, handleDeleteSale, handleDeleteSa
             <span className="text-sm font-semibold text-yellow-700">{customerName}</span>
           )}
         </div>
-        <div className="text-sm font-bold text-right">
-          <div>KES {totalAmount}</div>
-          <div className="text-gray-500 text-xs">Profit: {totalProfit}</div>
-        </div>
+         <div className="text-sm font-bold text-right">
+           <div>KES {totalAmount}</div>
+           {canViewProfit && (
+             <div className="text-gray-500 text-xs">Profit: {totalProfit}</div>
+           )}
+         </div>
       </div>
 
       {isCreditSale && (
@@ -131,7 +135,7 @@ export default function SaleList({
           {sales.filter(s => s.isCreditSale).length === 0 && <div className="text-sm text-gray-600">No credit sales.</div>}
           {groupSales(sales.filter(s => s.isCreditSale)).map((entry, idx) => {
             if (entry.isBulkGroup) {
-              const bulkTotal = entry.items.reduce((s, i) => s + i.total, 0);
+                          const bulkTotal = entry.items.reduce((s, i) => s + (i.total || 0), 0);
               const bulkDwnPayment = entry.items[0]?.bulkDwnPayment || 0;
               const amountOwed = bulkTotal - bulkDwnPayment;
               const isPaid = entry.items[0]?.isCreditPaid || false;

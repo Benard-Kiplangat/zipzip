@@ -1,6 +1,8 @@
 import React from "react";
+import { useAuth } from "../context/AuthContext";
 
 export default function MonthlySummary({ allSales = [], selectedDate }) {
+  const { canViewProfit } = useAuth();
   const refDate = selectedDate ? new Date(selectedDate) : new Date();
 
   // compute 12 months window ending at refDate's month (inclusive)
@@ -35,14 +37,17 @@ export default function MonthlySummary({ allSales = [], selectedDate }) {
         {[...rows].reverse().map((r, i) => (
           <div key={i} className="border p-3 rounded bg-gray-50 flex justify-between">
             <div>{r.label}</div>
-            <div className="text-sm">Credit Due: KES {r.creditDue} | Revenue: KES {r.totalRevenue} | Profit: KES {r.totalProfit}</div>
+            <div className="text-sm">
+              Credit Due: KES {r.creditDue} | Revenue: KES {r.totalRevenue}
+              {canViewProfit && <> | Profit: KES {r.totalProfit}</>}
+            </div>
           </div>
         ))}
         <div className="mt-3 p-3 border rounded bg-white">
           <div className="font-semibold">12-Month Totals</div>
           <div>Total Credit Due: KES {totals.totalCreditDue}</div>
           <div>Total Revenue: KES {totals.totalRevenue}</div>
-          <div>Total Profit: KES {totals.totalProfit}</div>
+          {canViewProfit && <div>Total Profit: KES {totals.totalProfit}</div>}
         </div>
       </div>
     </div>

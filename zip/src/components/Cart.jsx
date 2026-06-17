@@ -1,6 +1,8 @@
 import React, { useState } from "react";
+import { useAuth } from "../context/AuthContext";
 
-export default function Cart({ cart, onUpdateQty, onUpdatePrice, onRemoveItem, onClearCart, onMakeSale }) {
+export default function Cart({ cart, onUpdateQty, onUpdatePrice, onRemoveItem, onClearCart, onMakeSale, customers = [] }) {
+  const { canViewProfit } = useAuth();
   const [isCredit, setIsCredit] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [dwnPayment, setDwnPayment] = useState(0);
@@ -53,20 +55,23 @@ export default function Cart({ cart, onUpdateQty, onUpdatePrice, onRemoveItem, o
                     type="number"
                     min="1"
                     className="border p-1 w-12 rounded text-sm"
-                    value={item.qty}
-                    onChange={e => onUpdateQty(item.product._id, parseInt(e.target.value) || 1)}
+                      value={item.qty}
+                      onChange={e => onUpdateQty(item.product._id, parseInt(e.target.value, 10) || 1)}
                   />
                   <label className="text-xs text-gray-500">@</label>
                   <input
                     type="number"
                     className="border p-1 w-16 rounded text-sm"
                     value={item.sellingPrice}
-                    onChange={e => onUpdatePrice(item.product._id, parseInt(e.target.value) || 0)}
+                    onChange={e => onUpdatePrice(item.product._id, parseInt(e.target.value, 10) || 0)}
                   />
                   <span className="text-sm font-semibold">= {item.qty * item.sellingPrice}</span>
                 </div>
                 <div className="text-xs text-gray-400 mt-1">
-                  Profit: KES {item.qty * (item.sellingPrice - item.product.costPrice)} | Stock: {item.product.stock}
+                  {canViewProfit && (
+                    <span>Profit: KES {item.qty * (item.sellingPrice - item.product.costPrice)} | </span>
+                  )}
+                  Stock: {item.product.stock}
                 </div>
               </div>
             ))}
@@ -74,7 +79,9 @@ export default function Cart({ cart, onUpdateQty, onUpdatePrice, onRemoveItem, o
 
           <div className="border-t pt-2 space-y-1">
             <div className="text-sm font-bold">Total: KES {cartTotal}</div>
-            <div className="text-sm text-gray-600">Total Profit: KES {cartProfit}</div>
+            {canViewProfit && (
+              <div className="text-sm text-gray-600">Total Profit: KES {cartProfit}</div>
+            )}
           </div>
 
           <div className="border rounded p-2 bg-white space-y-2">
@@ -92,6 +99,19 @@ export default function Cart({ cart, onUpdateQty, onUpdatePrice, onRemoveItem, o
 
             {isCredit && (
               <div className="space-y-2 pt-1 border-t">
+                {customers.length > 0 && (
+                  <select
+                    className="w-full border p-1.5 rounded text-sm"
+                    value={customerName}
+                    onChange={e => setCustomerName(e.target.value)}
+                  >
+                    <option value="">Select customer (or type below)</option>
+                    {customers.map(c => (
+                      <option key={c._id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                )}
+
                 <input
                   type="text"
                   placeholder="Customer name (required)"
@@ -99,14 +119,16 @@ export default function Cart({ cart, onUpdateQty, onUpdatePrice, onRemoveItem, o
                   value={customerName}
                   onChange={e => setCustomerName(e.target.value)}
                 />
+
                 <input
                   type="number"
                   placeholder="Down payment"
                   className="w-full border p-1.5 rounded text-sm"
                   value={dwnPayment}
                   min="0"
-                  onChange={e => setDwnPayment(e.target.value)}
+                  onChange={e => setDwnPayment(Number(e.target.value) || 0)}
                 />
+
                 {dwnPayment > 0 && (
                   <div className="text-xs text-red-600 font-medium">
                     Owes after payment: KES {Math.max(0, amountOwed)}

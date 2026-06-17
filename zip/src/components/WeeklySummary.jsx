@@ -1,4 +1,5 @@
 import React from "react";
+import { useAuth } from "../context/AuthContext";
 
 function getMondayOfWeek(dateStr) {
   const d = dateStr ? new Date(dateStr) : new Date();
@@ -10,6 +11,7 @@ function getMondayOfWeek(dateStr) {
 }
 
 export default function WeeklySummary({ allSales = [], selectedDate }) {
+  const { canViewProfit } = useAuth();
   const monday = getMondayOfWeek(selectedDate);
 
   const days = Array.from({ length: 7 }).map((_, i) => {
@@ -55,7 +57,10 @@ export default function WeeklySummary({ allSales = [], selectedDate }) {
             <div className="text-sm text-right">
               {r.totalSales === 0
                 ? <span className="italic">No sales</span>
-                : <>Credit Due: KES {r.creditDue} | Revenue: KES {r.totalRevenue} | Profit: KES {r.totalProfit}</>
+                : <>
+                    Credit Due: KES {r.creditDue} | Revenue: KES {r.totalRevenue}
+                    {canViewProfit && <> | Profit: KES {r.totalProfit}</>}
+                  </>
               }
             </div>
           </div>
@@ -64,7 +69,7 @@ export default function WeeklySummary({ allSales = [], selectedDate }) {
           <div className="font-semibold mb-1">Week Totals</div>
           <div>Total Credit Due: KES {totals.totalCreditDue}</div>
           <div>Total Revenue: KES {totals.totalRevenue}</div>
-          <div>Total Profit: KES {totals.totalProfit}</div>
+          {canViewProfit && <div>Total Profit: KES {totals.totalProfit}</div>}
         </div>
       </div>
     </div>

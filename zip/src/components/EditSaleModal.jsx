@@ -1,6 +1,8 @@
 import React from "react";
+import { useAuth } from "../context/AuthContext";
 
 export default function EditSaleModal({ editingSale, handleEditChange, handleSaveEdit, handleCancelEdit }) {
+  const { canViewProfit } = useAuth();
   if (!editingSale) return null;
 
   return (
@@ -51,8 +53,8 @@ export default function EditSaleModal({ editingSale, handleEditChange, handleSav
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
-              checked={editingSale.isCreditSale}
-              onChange={(e) => handleEditChange("isCreditSale", e.target.checked ? "on" : "")}
+              checked={!!editingSale.isCreditSale}
+              onChange={(e) => handleEditChange("isCreditSale", e.target.checked)}
             />
             <span className="text-sm">Is Credit Sale</span>
           </label>
@@ -96,9 +98,9 @@ export default function EditSaleModal({ editingSale, handleEditChange, handleSav
             </>
           )}
 
-          <div className="text-sm text-gray-600">
-            Calculated profit: KES {editingSale.profit}
-          </div>
+          {canViewProfit && (
+            <div className="text-sm text-gray-600">Calculated profit: KES {editingSale.profit}</div>
+          )}
 
           <div className="flex justify-end gap-2 mt-3">
             <button onClick={handleCancelEdit} className="px-3 py-1 rounded bg-gray-200">Cancel</button>
