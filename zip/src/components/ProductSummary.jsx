@@ -1,6 +1,11 @@
+<<<<<<< HEAD
 import React, { useState, useMemo, useDeferredValue } from "react";
 import { useAuth } from "../context/AuthContext";
 import { formatWhole } from "../utils/format";
+=======
+import React, { useState, useMemo } from "react";
+import { useAuth } from "../context/AuthContext";
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
 
 function buildProductHistory(allSales, productName) {
   const relevant = allSales.filter(s => s.name === productName);
@@ -37,8 +42,13 @@ function ProductHistoryPanel({ productName, allSales, onClose }) {
           <div>
             <h2 className="text-lg font-bold">{productName}</h2>
             <p className="text-sm text-gray-500">
+<<<<<<< HEAD
               All-time: {grandQty} units · KES {formatWhole(grandRevenue)} revenue
               {canViewProfit && <> · KES {formatWhole(grandProfit)} profit</>}
+=======
+              All-time: {grandQty} units · KES {grandRevenue} revenue
+              {canViewProfit && <> · KES {grandProfit} profit</>}
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
             </p>
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-xl font-bold px-2">×</button>
@@ -53,7 +63,11 @@ function ProductHistoryPanel({ productName, allSales, onClose }) {
               <div className="flex justify-between items-center mb-1">
                 <span className="font-semibold text-gray-700">{date}</span>
                 <span className="text-xs text-gray-500 bg-gray-100 rounded px-2 py-0.5">
+<<<<<<< HEAD
                   {totalQty} units · KES {formatWhole(totalRevenue)} · profit {formatWhole(totalProfit)}
+=======
+                  {totalQty} units · KES {totalRevenue} · profit {totalProfit}
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
                 </span>
               </div>
               <div className="space-y-1 pl-2 border-l-2 border-gray-200">
@@ -68,7 +82,11 @@ function ProductHistoryPanel({ productName, allSales, onClose }) {
                     <div key={idx} className="flex justify-between items-start py-1 text-sm">
                       <div>
                         <span className="text-gray-400 text-xs mr-2">{time}</span>
+<<<<<<< HEAD
                         <span className="font-medium">{sale.quantity} × KES {formatWhole(sale.sellingPrice)}</span>
+=======
+                        <span className="font-medium">{sale.quantity} × KES {sale.sellingPrice}</span>
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
                         {tags.map((t, ti) => (
                           <span key={ti} className={`ml-1 text-xs px-1.5 py-0.5 rounded font-medium ${t.color}`}>{t.label}</span>
                         ))}
@@ -76,13 +94,21 @@ function ProductHistoryPanel({ productName, allSales, onClose }) {
                           <span className="ml-1 text-xs text-yellow-700">({sale.customerName})</span>
                         )}
                         {sale.isCreditSale && !sale.isCreditPaid && (
+<<<<<<< HEAD
                           <span className="ml-1 text-xs text-red-500">owes KES {formatWhole(amountOwed)}</span>
+=======
+                          <span className="ml-1 text-xs text-red-500">owes KES {amountOwed}</span>
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
                         )}
                         {sale.isCreditSale && sale.isCreditPaid && (
                           <span className="ml-1 text-xs text-green-600">paid</span>
                         )}
                       </div>
+<<<<<<< HEAD
                       <span className="text-gray-700 font-semibold ml-2 flex-shrink-0">KES {formatWhole(sale.total)}</span>
+=======
+                      <span className="text-gray-700 font-semibold ml-2 flex-shrink-0">KES {sale.total}</span>
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
                     </div>
                   );
                 })}
@@ -99,7 +125,10 @@ export default function ProductSummary({ allSales = [] }) {
   const { canViewProfit } = useAuth();
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [productSearch, setProductSearch] = useState("");
+<<<<<<< HEAD
   const deferredProductSearch = useDeferredValue(productSearch);
+=======
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
   const [productRange, setProductRange] = useState("week");
 
   const summaries = useMemo(() => {
@@ -107,7 +136,11 @@ export default function ProductSummary({ allSales = [] }) {
     if (productRange === "week") cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
     else if (productRange === "month") cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
+<<<<<<< HEAD
     const q = deferredProductSearch.trim().toLowerCase();
+=======
+    const q = productSearch.trim().toLowerCase();
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
     const map = {};
 
     allSales.forEach(s => {
@@ -120,9 +153,13 @@ export default function ProductSummary({ allSales = [] }) {
     });
 
     return Object.entries(map).sort((a, b) => b[1].revenue - a[1].revenue);
+<<<<<<< HEAD
   }, [allSales, productRange, deferredProductSearch]);
 
   const visibleSummaries = useMemo(() => summaries.slice(0, 80), [summaries]);
+=======
+  }, [allSales, productRange, productSearch]);
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
 
   const rangeLabel = productRange === "week" ? "past 7 days" : productRange === "month" ? "past 30 days" : "all time";
 
@@ -154,10 +191,17 @@ export default function ProductSummary({ allSales = [] }) {
       </p>
 
       <div className="space-y-3">
+<<<<<<< HEAD
         {visibleSummaries.length === 0 && (
           <div className="text-sm text-gray-600">No sales found for this period.</div>
         )}
         {visibleSummaries.map(([name, s]) => (
+=======
+        {summaries.length === 0 && (
+          <div className="text-sm text-gray-600">No sales found for this period.</div>
+        )}
+        {summaries.map(([name, s]) => (
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
           <button
             key={name}
             onClick={() => setSelectedProduct(name)}
@@ -169,8 +213,13 @@ export default function ProductSummary({ allSales = [] }) {
             </div>
             <div className="text-sm text-gray-600 mt-1 flex gap-4">
               <span>Sold: {s.quantity}</span>
+<<<<<<< HEAD
               <span>Revenue: KES {formatWhole(s.revenue)}</span>
               {canViewProfit && <span>Profit: KES {formatWhole(s.profit)}</span>}
+=======
+              <span>Revenue: KES {s.revenue}</span>
+              {canViewProfit && <span>Profit: KES {s.profit}</span>}
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
             </div>
           </button>
         ))}

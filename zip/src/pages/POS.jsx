@@ -1,14 +1,24 @@
+<<<<<<< HEAD
 import React, { useState, useEffect, useMemo, useDeferredValue } from "react";
 import { db } from "../db";
 import { showToast } from "../utils/toast";
 import Cart from "../components/Cart";
 import { formatWhole } from "../utils/format";
+=======
+import React, { useState, useEffect } from "react";
+import { db } from "../db";
+import { showToast } from "../utils/toast";
+import Cart from "../components/Cart";
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
 
 export default function POS() {
   const [products, setProducts] = useState([]);
   const [fullLoaded, setFullLoaded] = useState(false);
   const [search, setSearch] = useState("");
+<<<<<<< HEAD
   const deferredSearch = useDeferredValue(search);
+=======
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
   const [downPayment, setDownPayment] = useState({});
   const [quantities, setQuantities] = useState({});
   const [sellingPrices, setSellingPrices] = useState({});
@@ -25,6 +35,7 @@ export default function POS() {
     loadCustomers();
   }, []);
 
+<<<<<<< HEAD
   useEffect(() => {
     const handleDataRefresh = () => {
       loadProducts();
@@ -43,6 +54,11 @@ export default function POS() {
         startkey: 'customer:',
         endkey: 'customer:\uffff',
       });
+=======
+  const loadCustomers = async () => {
+    try {
+      const result = await db.allDocs({ include_docs: true });
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
       const custs = result.rows.map(r => r.doc).filter(d => d && d.type === 'customer');
       setCustomers(custs);
     } catch (e) {
@@ -117,12 +133,17 @@ export default function POS() {
 
   const loadFullProducts = async () => {
     try {
+<<<<<<< HEAD
       const result = await db.allDocs({
         include_docs: true,
         startkey: 'product_',
         endkey: 'product_\uffff',
       });
       const productDocs = result.rows.map(row => row.doc).filter(doc => doc && doc.type === "product");
+=======
+      const result = await db.allDocs({ include_docs: true });
+      const productDocs = result.rows.map(row => row.doc).filter(doc => doc.type === "product");
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
       setProducts(productDocs);
       setFullLoaded(true);
     } catch (e) {
@@ -183,6 +204,7 @@ export default function POS() {
 
     await db.put(sale);
     await db.put(updatedProduct);
+<<<<<<< HEAD
 
     setProducts(prev => prev.map(item =>
       item._id === product._id
@@ -208,6 +230,11 @@ export default function POS() {
     }
 
     showToast(`Sold ${qty} x ${product.name} — KES ${formatWhole(total)}`);
+=======
+    loadProducts();
+    loadOutstandingCredits();
+    showToast(`Sold ${qty} x ${product.name} — KES ${total}`);
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
     try { bumpPopular(product._id); } catch (e) { /* ignore */ }
     setQuantities(prev => ({ ...prev, [product._id]: 1 }));
     setCreditSales({});
@@ -266,7 +293,11 @@ export default function POS() {
     }
 
     for (const item of cart) {
+<<<<<<< HEAD
       const current = productIndex.get(item.product._id);
+=======
+      const current = products.find(p => p._id === item.product._id);
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
       if (!current || current.stock < item.qty) {
         alert(`Not enough stock for "${item.product.name}" (${current?.stock ?? 0} remaining)`);
         return;
@@ -277,7 +308,11 @@ export default function POS() {
 
     for (let i = 0; i < cart.length; i++) {
       const item = cart[i];
+<<<<<<< HEAD
       const product = productIndex.get(item.product._id);
+=======
+      const product = products.find(p => p._id === item.product._id);
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
       const total = item.qty * item.sellingPrice;
       const profit = total - (product.costPrice * item.qty);
 
@@ -309,6 +344,7 @@ export default function POS() {
 
     const totalAmount = cart.reduce((sum, item) => sum + item.qty * item.sellingPrice, 0);
     setCart([]);
+<<<<<<< HEAD
 
     setProducts(prev => prev.map(product => {
       const cartItem = cart.find(item => item.product._id === product._id);
@@ -379,6 +415,41 @@ export default function POS() {
     <div className="p-4 pb-8 flex flex-col lg:flex-row gap-4">
       {/* Col 1: POS Catalog List (Original Design) */}
       <div className="max-w-xl flex-shrink-0 w-full lg:w-auto">
+=======
+    loadProducts();
+    loadOutstandingCredits();
+    const creditNote = isCreditSale ? ` (Credit — ${customerName})` : "";
+    showToast(`Bulk sale of ${cart.length} items — KES ${totalAmount} complete${creditNote}`);
+  };
+
+  const filteredProducts = products.filter(p =>
+    p.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const lowStockProducts = products.filter(p => p.stock <= (p.lowStockThreshold ?? 2));
+
+  const customerCreditMap = {};
+  outstandingCredits.forEach(entry => {
+    const name = entry.customerName || "Unknown";
+    if (!customerCreditMap[name]) customerCreditMap[name] = { name, entries: [], totalOwed: 0 };
+    if (entry.isBulkGroup) {
+      const bulkTotal = entry.items.reduce((s, i) => s + i.total, 0);
+      const owed = bulkTotal - (entry.dwnPayment || 0);
+      customerCreditMap[name].entries.push({ owed, label: `Bulk (${entry.items.length} items)`, detail: entry.items.map(i => `${i.quantity}×${i.name}`).join(", ") });
+      customerCreditMap[name].totalOwed += owed;
+    } else {
+      const owed = entry.total - (entry.dwnPayment || 0);
+      customerCreditMap[name].entries.push({ owed, label: `${entry.quantity} × ${entry.name}`, detail: null });
+      customerCreditMap[name].totalOwed += owed;
+    }
+  });
+  const customerCredits = Object.values(customerCreditMap).sort((a, b) => b.totalOwed - a.totalOwed);
+  const grandCreditTotal = customerCredits.reduce((s, c) => s + c.totalOwed, 0);
+
+  return (
+    <div className="p-4 pb-8 flex gap-4">
+      <div className="max-w-xl flex-shrink-0">
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
         <input
           type="text"
           placeholder="Search product..."
@@ -388,7 +459,11 @@ export default function POS() {
         />
 
         <div className="space-y-3">
+<<<<<<< HEAD
           {visibleProducts.map(product => (
+=======
+          {filteredProducts.map(product => (
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
             <div key={product._id} className="border max-w-xl px-3 pt-2 pb-2 rounded">
               <div className="flex justify-between items-start">
                 <div>
@@ -401,8 +476,13 @@ export default function POS() {
                     className="border p-1 w-16 rounded"
                     value={sellingPrices[product._id] || product.sellingPrice}
                     onChange={(e) =>
+<<<<<<< HEAD
                       setSellingPrices(prev => ({ ...prev, [product._id]: Number(e.target.value) || 0 }))
                     }
+=======
+                        setSellingPrices(prev => ({ ...prev, [product._id]: Number(e.target.value) || 0 }))
+                      }
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
                   />
                   <input
                     type="number"
@@ -429,7 +509,11 @@ export default function POS() {
                         onClick={() => handleSell(product)}
                         className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 whitespace-nowrap"
                       >
+<<<<<<< HEAD
                         Sell ({formatWhole((quantities[product._id] || 1) * (sellingPrices[product._id] || product.sellingPrice))})
+=======
+                        Sell ({(quantities[product._id] || 1) * (sellingPrices[product._id] || product.sellingPrice)})
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
                       </button>
                       <button
                         onClick={() => handleAddToCart(product)}
@@ -439,7 +523,11 @@ export default function POS() {
                       </button>
                     </div>
                     <p className="text-sm text-gray-600">
+<<<<<<< HEAD
                       (Profit - {formatWhole(((sellingPrices[product._id] || product.sellingPrice) - product.costPrice) * (quantities[product._id] || 1))})
+=======
+                      (Profit - {((sellingPrices[product._id] || product.sellingPrice) - product.costPrice) * (quantities[product._id] || 1)})
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
                     </p>
                   </div>
                 </div>
@@ -484,6 +572,7 @@ export default function POS() {
         </div>
       </div>
 
+<<<<<<< HEAD
       {/* Col 2: Cart + Low Stock Preview */}
       <div className="flex flex-col gap-4 w-full">
         {/* Low Stock Preview Card on Top of Cart */}
@@ -505,6 +594,10 @@ export default function POS() {
           </div>
         )}
 
+=======
+      {/* Column 2: Cart + Low Stock */}
+      <div className="flex flex-col gap-4 w-72 flex-shrink-0">
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
         <Cart
           cart={cart}
           onUpdateQty={handleCartUpdateQty}
@@ -515,7 +608,32 @@ export default function POS() {
           customers={customers}
         />
 
+<<<<<<< HEAD
       {/* Col 3: Outstanding Credit Sales */}
+=======
+        {showLowStock && lowStockProducts.length > 0 && (
+          <div className="bg-red-100 p-4 rounded relative">
+            <button
+              className="absolute top-2 right-2 text-red-600 font-bold"
+              onClick={() => setShowLowStock(false)}
+            >
+              ×
+            </button>
+            <h2 className="text-lg font-semibold text-red-600">Low Stock Items</h2>
+            <ul className="list-disc pl-5">
+              {lowStockProducts.map(product => (
+                <li key={product._id} className="text-sm text-gray-700">
+                  {product.name} - {product.stock} remaining
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* Column 3: Outstanding Credit Sales grouped by customer */}
+      <div className="flex flex-col gap-4 w-72 flex-shrink-0">
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
         {customerCredits.length > 0 && (
           <div className="bg-yellow-50 border border-yellow-300 p-4 rounded">
             <h2 className="text-lg font-semibold text-yellow-700 mb-2">
@@ -527,19 +645,31 @@ export default function POS() {
                   <div className="font-semibold text-gray-800 mb-1">{customer.name}</div>
                   {customer.entries.map((e, i) => (
                     <div key={i} className="text-gray-600 text-xs">
+<<<<<<< HEAD
                       {e.label}{e.detail ? ` — ${e.detail}` : ""}: KES {formatWhole(e.owed)}
                     </div>
                   ))}
                   <div className="text-red-600 font-bold mt-1">Total: KES {formatWhole(customer.totalOwed)}</div>
+=======
+                      {e.label}{e.detail ? ` — ${e.detail}` : ""}: KES {e.owed}
+                    </div>
+                  ))}
+                  <div className="text-red-600 font-bold mt-1">Total: KES {customer.totalOwed}</div>
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
                 </div>
               ))}
             </div>
             <div className="mt-2 pt-2 border-t border-yellow-300 text-sm font-semibold text-yellow-800">
+<<<<<<< HEAD
               Grand total owed: KES {formatWhole(grandCreditTotal)}
+=======
+              Grand total owed: KES {grandCreditTotal}
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
             </div>
           </div>
         )}
       </div>
+<<<<<<< HEAD
 
       {/* Low Stock Modal Pop-up */}
       {showLowStockModal && (
@@ -605,3 +735,8 @@ export default function POS() {
 }
 
 
+=======
+    </div>
+  );
+}
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff

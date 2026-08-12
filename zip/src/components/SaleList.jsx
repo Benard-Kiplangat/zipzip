@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React, { useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
 import { formatWhole } from "../utils/format";
@@ -8,6 +9,18 @@ function groupSales(sales) {
   const bulkMap = {};
 
   ordered.forEach(sale => {
+=======
+import React from "react";
+import { generateReceipt } from "../utils/generateReceipt";
+import { useAuth } from "../context/AuthContext";
+
+function groupSales(sales) {
+  const reversed = [...sales].reverse();
+  const result = [];
+  const bulkMap = {};
+
+  reversed.forEach(sale => {
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
     if (sale.isBulkSale && sale.bulkSaleId) {
       if (!bulkMap[sale.bulkSaleId]) {
         const group = {
@@ -28,6 +41,7 @@ function groupSales(sales) {
   return result;
 }
 
+<<<<<<< HEAD
 function BulkSaleGroup({
   group,
   handleEditSale,
@@ -36,6 +50,9 @@ function BulkSaleGroup({
   handleMarkBulkPaid,
   handleReceiptDownload,
 }) {
+=======
+function BulkSaleGroup({ group, handleEditSale, handleDeleteSale, handleDeleteSaleWithStockRestore, handleMarkBulkPaid }) {
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
   const { canViewProfit } = useAuth();
   const totalAmount = group.items.reduce((sum, s) => sum + (s.total || 0), 0);
   const totalProfit = group.items.reduce((sum, s) => sum + (s.profit || 0), 0);
@@ -64,9 +81,15 @@ function BulkSaleGroup({
           )}
         </div>
          <div className="text-sm font-bold text-right">
+<<<<<<< HEAD
            <div>KES {formatWhole(totalAmount)}</div>
            {canViewProfit && (
              <div className="text-gray-500 text-xs">Profit: {formatWhole(totalProfit)}</div>
+=======
+           <div>KES {totalAmount}</div>
+           {canViewProfit && (
+             <div className="text-gray-500 text-xs">Profit: {totalProfit}</div>
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
            )}
          </div>
       </div>
@@ -77,8 +100,13 @@ function BulkSaleGroup({
             {isPaid
               ? <span className="text-green-600 font-bold">PAID</span>
               : bulkDwnPayment > 0
+<<<<<<< HEAD
                 ? <><span className="text-gray-600">Down: KES {formatWhole(bulkDwnPayment)} | </span><span className="text-red-600 font-medium">Owes: KES {formatWhole(amountOwed)}</span></>
                 : <span className="text-red-600 font-medium">Owes full: KES {formatWhole(totalAmount)} (no down payment)</span>
+=======
+                ? <><span className="text-gray-600">Down: KES {bulkDwnPayment} | </span><span className="text-red-600 font-medium">Owes: KES {amountOwed}</span></>
+                : <span className="text-red-600 font-medium">Owes full: KES {totalAmount} (no down payment)</span>
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
             }
           </div>
           {isCreditSale && !isPaid && (
@@ -97,7 +125,11 @@ function BulkSaleGroup({
           <div key={idx} className="bg-white rounded p-2 flex justify-between items-center">
             <div>
               <span className="font-medium text-sm">{sale.quantity} × {sale.name}</span>
+<<<<<<< HEAD
               <span className="text-xs text-gray-500 ml-2">@ KES {formatWhole(sale.sellingPrice)} = KES {formatWhole(sale.total)}</span>
+=======
+              <span className="text-xs text-gray-500 ml-2">@ KES {sale.sellingPrice} = KES {sale.total}</span>
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
             </div>
             <div className="flex gap-2 text-xs">
               <button onClick={() => handleEditSale(sale)} className="text-green-600">Edit</button>
@@ -111,7 +143,11 @@ function BulkSaleGroup({
       <div className="mt-2 text-xs text-gray-500">{group.items.length} items — {totalQty} units total</div>
 
       <button
+<<<<<<< HEAD
         onClick={() => handleReceiptDownload(group.items)}
+=======
+        onClick={() => generateReceipt(group.items)}
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
         className="mt-2 bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm"
       >
         Receipt
@@ -132,6 +168,7 @@ export default function SaleList({
   handleDeleteSaleWithStockRestore,
   handleMarkBulkPaid,
 }) {
+<<<<<<< HEAD
   const grouped = useMemo(() => groupSales(sales), [sales]);
   const creditSales = useMemo(() => sales.filter(s => s.isCreditSale), [sales]);
   const groupedCreditSales = useMemo(() => groupSales(creditSales), [creditSales]);
@@ -145,14 +182,22 @@ export default function SaleList({
       alert("Unable to generate receipt right now.");
     }
   };
+=======
+  const grouped = groupSales(sales);
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
 
   return (
     <div className="flex flex-col gap-2 mt-2">
       {showCreditList && (
         <div className="mt-3 space-y-2 mb-4">
           <h3 className="font-semibold">Credit Sales (selected date)</h3>
+<<<<<<< HEAD
           {creditSales.length === 0 && <div className="text-sm text-gray-600">No credit sales.</div>}
           {groupedCreditSales.map((entry, idx) => {
+=======
+          {sales.filter(s => s.isCreditSale).length === 0 && <div className="text-sm text-gray-600">No credit sales.</div>}
+          {groupSales(sales.filter(s => s.isCreditSale)).map((entry, idx) => {
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
             if (entry.isBulkGroup) {
                           const bulkTotal = entry.items.reduce((s, i) => s + (i.total || 0), 0);
               const bulkDwnPayment = entry.items[0]?.bulkDwnPayment || 0;
@@ -167,11 +212,19 @@ export default function SaleList({
                         <span className="font-semibold">{entry.items[0]?.customerName || <span className="italic text-gray-400">No name</span>}</span>
                       </div>
                       {entry.items.map((s, i) => (
+<<<<<<< HEAD
                         <div key={i} className="text-sm text-gray-700">{s.quantity} × {s.name} — KES {formatWhole(s.total)}</div>
                       ))}
                       <div className="text-sm text-gray-600 mt-1">
                         Total: KES {formatWhole(bulkTotal)}
                         {bulkDwnPayment > 0 && ` | Paid: KES ${formatWhole(bulkDwnPayment)} | Owes: KES ${formatWhole(amountOwed)}`}
+=======
+                        <div key={i} className="text-sm text-gray-700">{s.quantity} × {s.name} — KES {s.total}</div>
+                      ))}
+                      <div className="text-sm text-gray-600 mt-1">
+                        Total: KES {bulkTotal}
+                        {bulkDwnPayment > 0 && ` | Paid: KES ${bulkDwnPayment} | Owes: KES ${amountOwed}`}
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1 ml-2 flex-shrink-0">
@@ -202,8 +255,13 @@ export default function SaleList({
                     <div className="text-sm text-yellow-700 font-medium">Customer: {sale.customerName}</div>
                   )}
                   <div className="text-sm text-gray-600">
+<<<<<<< HEAD
                     Total: KES {formatWhole(sale.total)}
                     {sale.dwnPayment > 0 && ` | Paid: KES ${formatWhole(sale.dwnPayment)} | Owes: KES ${formatWhole(sale.total - sale.dwnPayment)}`}
+=======
+                    Total: KES {sale.total}
+                    {sale.dwnPayment > 0 && ` | Paid: KES ${sale.dwnPayment} | Owes: KES ${sale.total - sale.dwnPayment}`}
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
                   </div>
                   <div className="mt-1 flex gap-2">
                     <button onClick={() => handleEditSale(sale)} className="text-green-600 text-sm">Edit</button>
@@ -223,7 +281,11 @@ export default function SaleList({
 
       {selectedSales.length > 0 && (
         <button
+<<<<<<< HEAD
           onClick={() => handleReceiptDownload(selectedSales)}
+=======
+          onClick={() => generateReceipt(selectedSales)}
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
           className="bg-blue-600 text-white px-4 py-2 rounded mt-4"
         >
           Download Group Receipt ({selectedSales.length} items)
@@ -240,7 +302,10 @@ export default function SaleList({
               handleDeleteSale={handleDeleteSale}
               handleDeleteSaleWithStockRestore={handleDeleteSaleWithStockRestore}
               handleMarkBulkPaid={handleMarkBulkPaid}
+<<<<<<< HEAD
               handleReceiptDownload={handleReceiptDownload}
+=======
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
             />
           );
         }
@@ -270,7 +335,11 @@ export default function SaleList({
                   <span className="px-1">
                     {new Date(sale.timestamp).toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
                   </span>
+<<<<<<< HEAD
                   for Ksh. {formatWhole(sale.total)}{sale.isCreditSale ? sale.dwnPayment ? " with a down payment of " + formatWhole(sale.dwnPayment) : " with no down payment" : ", a profit of " + formatWhole(sale.total - sale.costPrice * sale.quantity) + " shillings"}
+=======
+                  for Ksh. {sale.total}{sale.isCreditSale ? sale.dwnPayment ? " with a down payment of " + sale.dwnPayment : " with no down payment" : ", a profit of " + (sale.total - sale.costPrice * sale.quantity) + " shillings"}
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
                 </div>
                 {sale.isCreditSale && sale.customerName && (
                   <div className="text-sm text-yellow-700 font-medium mt-0.5">
@@ -284,7 +353,11 @@ export default function SaleList({
                 </div>
               </div>
               <button
+<<<<<<< HEAD
                 onClick={() => handleReceiptDownload([sale])}
+=======
+                onClick={() => generateReceipt([sale])}
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
                 className="mt-1 ml-4 bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
               >
                 Receipt

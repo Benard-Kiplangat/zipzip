@@ -9,6 +9,7 @@ export default defineConfig({
     port: 5000,
     allowedHosts: true,
   },
+<<<<<<< HEAD
   build: {
     rollupOptions: {
       output: {
@@ -40,6 +41,8 @@ export default defineConfig({
       },
     },
   },
+=======
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
   plugins: [
     react(),
     VitePWA({

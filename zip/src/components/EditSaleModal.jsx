@@ -1,6 +1,9 @@
 import React from "react";
 import { useAuth } from "../context/AuthContext";
+<<<<<<< HEAD
 import { formatWhole } from "../utils/format";
+=======
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
 
 export default function EditSaleModal({ editingSale, handleEditChange, handleSaveEdit, handleCancelEdit }) {
   const { canViewProfit } = useAuth();
@@ -100,7 +103,11 @@ export default function EditSaleModal({ editingSale, handleEditChange, handleSav
           )}
 
           {canViewProfit && (
+<<<<<<< HEAD
             <div className="text-sm text-gray-600">Calculated profit: KES {formatWhole(editingSale.profit)}</div>
+=======
+            <div className="text-sm text-gray-600">Calculated profit: KES {editingSale.profit}</div>
+>>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
           )}
 
           <div className="flex justify-end gap-2 mt-3">
