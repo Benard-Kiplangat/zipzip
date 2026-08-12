@@ -1,5 +1,4 @@
 import PouchDB from "pouchdb-browser";
-<<<<<<< HEAD
 
 const electronApi = typeof window !== "undefined" ? window.electronAPI : null;
 
@@ -30,6 +29,3 @@ export function resetDb() {
 }
 
 export { db };
-=======
-export const db = new PouchDB("posdb");
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff

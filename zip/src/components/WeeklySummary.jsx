@@ -1,11 +1,6 @@
-<<<<<<< HEAD
 import React, { useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
 import { formatWhole } from "../utils/format";
-=======
-import React from "react";
-import { useAuth } from "../context/AuthContext";
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
 
 function getMondayOfWeek(dateStr) {
   const d = dateStr ? new Date(dateStr) : new Date();
@@ -20,7 +15,6 @@ export default function WeeklySummary({ allSales = [], selectedDate }) {
   const { canViewProfit } = useAuth();
   const monday = getMondayOfWeek(selectedDate);
 
-<<<<<<< HEAD
   const days = useMemo(() => Array.from({ length: 7 }).map((_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
@@ -60,35 +54,6 @@ export default function WeeklySummary({ allSales = [], selectedDate }) {
 
     return { rows, totals };
   }, [allSales, days]);
-=======
-  const days = Array.from({ length: 7 }).map((_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    return d;
-  });
-
-  const sunday = days[6];
-
-  const rows = days.map(d => {
-    const key = d.toLocaleDateString();
-    const salesForDay = allSales.filter(s => new Date(s.timestamp).toLocaleDateString() === key);
-    const totalSales = salesForDay.reduce((sum, s) => sum + (s.quantity || 0), 0);
-    const totalRevenue = salesForDay.reduce((sum, s) => sum + (s.total || 0), 0);
-    const totalProfit = salesForDay.reduce((sum, s) => sum + (s.profit || 0), 0);
-    const creditGross = salesForDay.filter(s => s.isCreditSale).reduce((sum, s) => sum + (s.total || 0), 0);
-    const creditDown = salesForDay.filter(s => s.isCreditSale).reduce((sum, s) => sum + (s.dwnPayment || 0), 0);
-    const creditDue = creditGross - creditDown;
-    const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
-    return { date: key, dayName, totalSales, totalRevenue, totalProfit, creditDue };
-  });
-
-  const totals = rows.reduce((acc, r) => ({
-    totalSales: acc.totalSales + r.totalSales,
-    totalRevenue: acc.totalRevenue + r.totalRevenue,
-    totalProfit: acc.totalProfit + r.totalProfit,
-    totalCreditDue: acc.totalCreditDue + (r.creditDue || 0),
-  }), { totalSales: 0, totalRevenue: 0, totalProfit: 0, totalCreditDue: 0 });
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
 
   const fmt = d => d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
 
@@ -106,13 +71,8 @@ export default function WeeklySummary({ allSales = [], selectedDate }) {
               {r.totalSales === 0
                 ? <span className="italic">No sales</span>
                 : <>
-<<<<<<< HEAD
                     Credit Due: KES {formatWhole(r.creditDue)} | Revenue: KES {formatWhole(r.totalRevenue)}
                     {canViewProfit && <> | Profit: KES {formatWhole(r.totalProfit)}</>}
-=======
-                    Credit Due: KES {r.creditDue} | Revenue: KES {r.totalRevenue}
-                    {canViewProfit && <> | Profit: KES {r.totalProfit}</>}
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
                   </>
               }
             </div>
@@ -120,15 +80,9 @@ export default function WeeklySummary({ allSales = [], selectedDate }) {
         ))}
         <div className="mt-3 p-3 border rounded bg-yellow-50">
           <div className="font-semibold mb-1">Week Totals</div>
-<<<<<<< HEAD
           <div>Total Credit Due: KES {formatWhole(totals.totalCreditDue)}</div>
           <div>Total Revenue: KES {formatWhole(totals.totalRevenue)}</div>
           {canViewProfit && <div>Total Profit: KES {formatWhole(totals.totalProfit)}</div>}
-=======
-          <div>Total Credit Due: KES {totals.totalCreditDue}</div>
-          <div>Total Revenue: KES {totals.totalRevenue}</div>
-          {canViewProfit && <div>Total Profit: KES {totals.totalProfit}</div>}
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
         </div>
       </div>
     </div>

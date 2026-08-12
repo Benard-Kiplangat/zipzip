@@ -1,12 +1,7 @@
 // Sales.jsx
-<<<<<<< HEAD
 import React, { useEffect, useMemo, useState } from "react";
 import { db } from "../db";
 import { formatWhole } from "../utils/format";
-=======
-import React, { useEffect, useState } from "react";
-import { db } from "../db";
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
 import { generateReceipt } from "../utils/generateReceipt";
 import WeeklySummary from "../components/WeeklySummary";
 import MonthlySummary from "../components/MonthlySummary";
@@ -39,7 +34,6 @@ export default function Sales() {
     loadSales();
   }, []);
 
-<<<<<<< HEAD
   useEffect(() => {
     const handleDataRefresh = () => {
       loadSales(selectedDate);
@@ -58,16 +52,6 @@ export default function Sales() {
     setAllSales(salesDocs);
 
     const today = new Date(y, m - 1, d).toLocaleDateString();
-=======
-  const loadSales = async (dateStr) => {
-    const result = await db.allDocs({ include_docs: true });
-    const salesDocs = result.rows.map(row => row.doc).filter(doc => doc.type === "sale");
-    setAllSales(salesDocs);
-    const usedDate = dateStr || selectedDate;
-    const [y, m, d] = usedDate.split('-').map(Number);
-    const today = new Date(y, m - 1, d).toLocaleDateString();
-
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
     const todaySales = salesDocs.filter(sale =>
       new Date(sale.timestamp).toLocaleDateString() === today
     );
@@ -224,7 +208,6 @@ export default function Sales() {
 
   const isSelected = (sale) => selectedSales.find(s => s._id === sale._id);
 
-<<<<<<< HEAD
   const filteredSales = useMemo(() => {
     const q = salesSearch.trim().toLowerCase();
     const list = [...sales].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -236,19 +219,6 @@ export default function Sales() {
   }, [sales, salesSearch]);
 
   const visibleSales = filteredSales.slice(0, 120);
-=======
-  const filteredSales = (() => {
-    const q = salesSearch.trim().toLowerCase();
-    if (!q) return sales;
-    let cutoff = 0;
-    if (searchRange === "week") cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    else if (searchRange === "month") cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    return allSales.filter(s =>
-      new Date(s.timestamp).getTime() >= cutoff &&
-      (s.name?.toLowerCase().includes(q) || s.customerName?.toLowerCase().includes(q))
-    ).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-  })();
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
 
   const { canViewProfit } = useAuth();
 
@@ -269,17 +239,10 @@ export default function Sales() {
             Date: <input className="bg-red-500" type="date" name="datePick" id="datePick" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); loadSales(e.target.value); }} />
             <div className="mb-4">
               <div>No. of Items Sold: {summary.totalSales}</div>
-<<<<<<< HEAD
               <div>Total Revenue: KES {formatWhole(summary.totalRevenue)}</div>
               <div>Total Due Sales: KES {formatWhole(summary.totalCreditSales)}</div>
               {canViewProfit && (
                 <div>Total Profit: KES {formatWhole(summary.totalProfit)}</div>
-=======
-              <div>Total Revenue: KES {summary.totalRevenue}</div>
-              <div>Total Due Sales: KES {summary.totalCreditSales}</div>
-              {canViewProfit && (
-                <div>Total Profit: KES {summary.totalProfit}</div>
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
               )}
             </div>
 
@@ -317,11 +280,7 @@ export default function Sales() {
             )}
 
             <SaleList
-<<<<<<< HEAD
               sales={visibleSales}
-=======
-              sales={filteredSales}
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
               showCreditList={showCreditList}
               setShowCreditList={setShowCreditList}
               selectedSales={selectedSales}

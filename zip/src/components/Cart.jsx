@@ -1,9 +1,6 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-<<<<<<< HEAD
 import { formatWhole } from "../utils/format";
-=======
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
 
 export default function Cart({ cart, onUpdateQty, onUpdatePrice, onRemoveItem, onClearCart, onMakeSale, customers = [] }) {
   const { canViewProfit } = useAuth();
@@ -69,19 +66,11 @@ export default function Cart({ cart, onUpdateQty, onUpdatePrice, onRemoveItem, o
                     value={item.sellingPrice}
                     onChange={e => onUpdatePrice(item.product._id, parseInt(e.target.value, 10) || 0)}
                   />
-<<<<<<< HEAD
                   <span className="text-sm font-semibold">= {formatWhole(item.qty * item.sellingPrice)}</span>
                 </div>
                 <div className="text-xs text-gray-400 mt-1">
                   {canViewProfit && (
                     <span>Profit: KES {formatWhole(item.qty * (item.sellingPrice - item.product.costPrice))} | </span>
-=======
-                  <span className="text-sm font-semibold">= {item.qty * item.sellingPrice}</span>
-                </div>
-                <div className="text-xs text-gray-400 mt-1">
-                  {canViewProfit && (
-                    <span>Profit: KES {item.qty * (item.sellingPrice - item.product.costPrice)} | </span>
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
                   )}
                   Stock: {item.product.stock}
                 </div>
@@ -90,15 +79,9 @@ export default function Cart({ cart, onUpdateQty, onUpdatePrice, onRemoveItem, o
           </div>
 
           <div className="border-t pt-2 space-y-1">
-<<<<<<< HEAD
             <div className="text-sm font-bold">Total: KES {formatWhole(cartTotal)}</div>
             {canViewProfit && (
               <div className="text-sm text-gray-600">Total Profit: KES {formatWhole(cartProfit)}</div>
-=======
-            <div className="text-sm font-bold">Total: KES {cartTotal}</div>
-            {canViewProfit && (
-              <div className="text-sm text-gray-600">Total Profit: KES {cartProfit}</div>
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
             )}
           </div>
 
@@ -149,11 +132,7 @@ export default function Cart({ cart, onUpdateQty, onUpdatePrice, onRemoveItem, o
 
                 {dwnPayment > 0 && (
                   <div className="text-xs text-red-600 font-medium">
-<<<<<<< HEAD
                     Owes after payment: KES {formatWhole(Math.max(0, amountOwed))}
-=======
-                    Owes after payment: KES {Math.max(0, amountOwed)}
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
                   </div>
                 )}
               </div>

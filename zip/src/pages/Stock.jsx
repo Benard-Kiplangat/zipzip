@@ -1,13 +1,7 @@
-<<<<<<< HEAD
 import React, { useEffect, useMemo, useState } from "react";
 import { db } from "../db";
 import SyncButton from "../components/SyncButton";
 import { formatWhole } from "../utils/format";
-=======
-import React, { useEffect, useState } from "react";
-import { db } from "../db";
-import SyncButton from "../components/SyncButton";
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
 
 export default function Stock() {
   const [products, setProducts] = useState([]);
@@ -20,7 +14,6 @@ export default function Stock() {
     loadProducts();
   }, []);
 
-<<<<<<< HEAD
   useEffect(() => {
     const handleDataRefresh = () => {
       loadProducts();
@@ -45,29 +38,18 @@ export default function Stock() {
       endkey: "product_\uffff",
     });
     const items = result.rows.map(row => row.doc).filter(doc => doc && doc.type === "product");
-=======
-  const loadProducts = async () => {
-    const result = await db.allDocs({ include_docs: true });
-    const items = result.rows.map(row => row.doc).filter(doc => doc.type === "product");
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
     setProducts(items);
 
     let cost = 0;
     let sale = 0;
     items.forEach(item => {
-<<<<<<< HEAD
       cost += (Number(item.stock) || 0) * (Number(item.costPrice) || 0);
       sale += (Number(item.stock) || 0) * (Number(item.sellingPrice) || 0);
-=======
-      cost += item.stock * item.costPrice;
-      sale += item.stock * item.sellingPrice;
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
     });
     setTotalCostValue(cost);
     setTotalSaleValue(sale);
   };
 
-<<<<<<< HEAD
   const filteredProducts = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return products;
@@ -75,24 +57,15 @@ export default function Stock() {
   }, [products, search]);
 
   const visibleProducts = filteredProducts.slice(0, 100);
-=======
-  const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  );
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
 
   const handleChange = e => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async () => {
-<<<<<<< HEAD
     if (!form.name || !form.costPrice || !form.sellingPrice || !form.stock) {
       return alert("Please fill in Product Name, Cost Price, Selling Price, and Stock Quantity.");
     }
-=======
-    if (!form.name || !form.costPrice || !form.sellingPrice || !form.stock) return;
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
 
     let existing = products.find(p => p.name.toLowerCase() === form.name.toLowerCase());
 
@@ -141,17 +114,12 @@ export default function Stock() {
   };
 
   const handleDelete = async (product) => {
-<<<<<<< HEAD
     if (window.confirm(`Are you sure you want to delete "${product.name}"?`)) {
-=======
-    if (window.confirm("Are you sure you want to delete this product?")) {
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
       await db.remove(product);
       loadProducts();
     }
   };
 
-<<<<<<< HEAD
   const expectedProfit = totalSaleValue - totalCostValue;
 
   return (
@@ -304,58 +272,6 @@ export default function Stock() {
 
         <div className="grid grid-cols-1 gap-4">
            {filteredProducts.map(product => (
-=======
-  return (
-    <div className="max-w-xl px-4 pb-32">
-      <div className="pb-4">
-        <div>Total Stock Value: KES {totalCostValue}</div>
-        <div>Total Sales Value: KES {totalSaleValue}</div>
-
-        <SyncButton />
-        <div className="border-b mt-4"></div>
-
-          <h2 className="text-xl font-bold my-4">Add/Update Products</h2>
-          <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block mb-1">Product Name</label>
-              <input name="name" value={form.name} onChange={handleChange} className="border p-2 w-full" />
-            </div>
-            <div>
-              <label className="block mb-1">Cost Price</label>
-              <input name="costPrice" type="number" value={form.costPrice} onChange={handleChange} className="border p-2 w-full" />
-            </div>
-            <div>
-              <label className="block mb-1">Selling Price</label>
-              <input name="sellingPrice" type="number" value={form.sellingPrice} onChange={handleChange} className="border p-2 w-full" />
-            </div>
-            <div>
-              <label className="block mb-1">Stock Quantity</label>
-              <input name="stock" type="number" value={form.stock} onChange={handleChange} className="border p-2 w-full" />
-            </div>
-            <div>
-              <label className="block mb-1">Low stock alert at (default: 2)</label>
-              <input name="lowStockThreshold" type="number" min="0" placeholder="2" value={form.lowStockThreshold} onChange={handleChange} className="border p-2 w-full" />
-            </div>
-          </div>
-          <div className="flex m-2">
-            <div className="mr-6">
-              <button onClick={handleSubmit} className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
-                {form.id ? "Update Product" : "Add Product"}
-              </button>
-            </div>
-          </div>
-
-          <h2 className="text-lg font-semibold mt-8 mb-2">Product List</h2>
-          <div className="space-y-2">
-            <input
-              type="text"
-              placeholder="Search product..."
-              className="w-full mb-4 p-2 border rounded"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            {filteredProducts.map(product => (
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
               <div key={product._id} className="border p-3 rounded flex justify-between items-center">
                 <div>
                   <div className="font-semibold">{product.name}</div>
@@ -372,17 +288,9 @@ export default function Stock() {
                 </div>
               </div>
             ))}
-<<<<<<< HEAD
         </div>
       </div>
     </div>
   );
 }
 
-=======
-          </div>
-        </div>
-    </div>
-  );
-}
->>>>>>> 26f2355402417aafd15fbceedae628b2eedadbff
