@@ -1,6 +1,6 @@
 {
-  "name": "Imara-Auto-Spares-POS",
-  "version": "0.2.1",
+  "name": "Mogogosiek-AutoSpares-POS",
+  "version": "0.2.3",
   "author": "Benard Kiplangat",
   "description": "POS application for an Autospares Shop",
   "main": "electron/main.js",

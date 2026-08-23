@@ -356,7 +356,8 @@ export default function POS() {
     const customerCreditMap = {};
     outstandingCredits.forEach(entry => {
       const name = entry.customerName || "Unknown";
-      if (!customerCreditMap[name]) customerCreditMap[name] = { name, entries: [], totalOwed: 0 };
+      const date = entry.timestamp;
+      if (!customerCreditMap[name]) customerCreditMap[name] = { name, date, entries: [], totalOwed: 0 };
       if (entry.isBulkGroup) {
         const bulkTotal = entry.items.reduce((s, i) => s + i.total, 0);
         const owed = bulkTotal - (entry.dwnPayment || 0);
@@ -374,121 +375,16 @@ export default function POS() {
   const grandCreditTotal = useMemo(() => customerCredits.reduce((s, c) => s + c.totalOwed, 0), [customerCredits]);
 
   const [showLowStockModal, setShowLowStockModal] = useState(false);
+ 
 
   return (
     <div className="p-4 pb-8 flex flex-col lg:flex-row gap-4">
       {/* Col 1: POS Catalog List (Original Design) */}
       <div className="max-w-xl flex-shrink-0 w-full lg:w-auto">
-        <input
-          type="text"
-          placeholder="Search product..."
-          className="w-full mb-4 p-2 border rounded"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
 
-        <div className="space-y-3">
-          {visibleProducts.map(product => (
-            <div key={product._id} className="border max-w-xl px-3 pt-2 pb-2 rounded">
-              <div className="flex justify-between items-start">
-                <div>
-                  {product.name}
-                  <p className="text-sm text-gray-600">{product.stock} remaining</p>
-                </div>
-                <div className="flex justify-end items-start flex-wrap gap-1">
-                  <input
-                    type="number"
-                    className="border p-1 w-16 rounded"
-                    value={sellingPrices[product._id] || product.sellingPrice}
-                    onChange={(e) =>
-                      setSellingPrices(prev => ({ ...prev, [product._id]: Number(e.target.value) || 0 }))
-                    }
-                  />
-                  <input
-                    type="number"
-                    min="1"
-                    className="border p-1 w-12 rounded"
-                    value={quantities[product._id] || 1}
-                    onChange={(e) =>
-                      setQuantities(prev => ({ ...prev, [product._id]: parseInt(e.target.value, 10) || 1 }))
-                    }
-                  />
-                  <div className="border p-1 w-16 rounded flex items-center gap-1">
-                    <label className="text-xs">Crt?</label>
-                    <input
-                      type="checkbox"
-                      checked={creditSales[product._id] || false}
-                      onChange={() =>
-                        setCreditSales(prev => ({ ...prev, [product._id]: !prev[product._id] }))
-                      }
-                    />
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => handleSell(product)}
-                        className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 whitespace-nowrap"
-                      >
-                        Sell ({formatWhole((quantities[product._id] || 1) * (sellingPrices[product._id] || product.sellingPrice))})
-                      </button>
-                      <button
-                        onClick={() => handleAddToCart(product)}
-                        className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 whitespace-nowrap"
-                      >
-                        + Cart
-                      </button>
-                    </div>
-                    <p className="text-sm text-gray-600">
-                      (Profit - {formatWhole(((sellingPrices[product._id] || product.sellingPrice) - product.costPrice) * (quantities[product._id] || 1))})
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {creditSales[product._id] && (
-                <div className="flex gap-2 mt-2 flex-wrap">
-                  {customers.length > 0 && (
-                    <select
-                      className="border p-1 rounded min-w-32"
-                      value={customerNames[product._id] || ""}
-                      onChange={(e) => setCustomerNames(prev => ({ ...prev, [product._id]: e.target.value }))}
-                    >
-                      <option value="">Select customer (or type)</option>
-                      {customers.map(c => (
-                        <option key={c._id} value={c.name}>{c.name}</option>
-                      ))}
-                    </select>
-                  )}
-                  <input
-                    type="text"
-                    placeholder="Or enter customer name"
-                    className="border p-1 rounded flex-1 min-w-32"
-                    value={customerNames[product._id] || ""}
-                    onChange={(e) =>
-                      setCustomerNames(prev => ({ ...prev, [product._id]: e.target.value }))
-                    }
-                  />
-                  <input
-                    type="number"
-                    placeholder="Down payment"
-                    className="border p-1 w-24 rounded"
-                    value={downPayment[product._id] || 0}
-                    onChange={(e) =>
-                      setDownPayment(prev => ({ ...prev, [product._id]: parseInt(e.target.value, 10) || 0 }))
-                    }
-                  />
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Col 2: Cart + Low Stock Preview */}
-      <div className="flex flex-col gap-4 w-full">
-        {/* Low Stock Preview Card on Top of Cart */}
+ {/* Low Stock Preview Card on Top of Cart */}
         {lowStockProducts.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between shadow-sm">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-2">
               <span className="text-lg">⚠️</span>
               <div>
@@ -505,6 +401,124 @@ export default function POS() {
           </div>
         )}
 
+        <input
+          type="text"
+          placeholder="Search product..."
+          className="w-full mb-4 p-2 border rounded"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+
+        <div className="space-y-3">
+          {visibleProducts.map(product => (
+            <div key={product._id} className="border min-w-xl max-w-xl px-3 pt-2 pb-2 rounded">
+              <div className="flex flex-col gap-1 justify-center items-start">
+                <div className="flex w-full justify-between">
+                  <div>
+                  {product.name}
+                  <span className="pl-2 text-green-500 text-sm text-gray-600">{(product.stock < 1) ? <span className='text-red-500'>Out of Stock</span> : `${product.stock} remaining`}</span></div>
+                  <p className="sm:hidden text-sm text-gray-600">
+                      (Profit - {formatWhole(((sellingPrices[product._id] || product.sellingPrice) - product.costPrice) * (quantities[product._id] || 1))})
+                    </p>
+                </div>
+                      <div className="flex gap-2 justify-between items-end w-full">
+                <div className="flex items-start flex-wrap gap-1">
+                  <input
+                    type="number"
+                    className="max-w-[75px] border p-1 w-24 h-8 rounded"
+                    value={sellingPrices[product._id] ?? product.sellingPrice}
+                    onChange={(e) =>
+                      setSellingPrices(prev => ({ ...prev, [product._id]: Number(e.target.value) || "" }))
+                    }
+                  />
+                        <input
+                          type="number"
+                          min="1"
+                          max={Math.max(1, product.stock)}
+                          disabled={product.stock < 1}
+                          className="max-w-[75px] border p-1 w-24 h-8 rounded text-sm"
+                          value={quantities[product._id] ?? 1}
+                          onChange={(e) =>
+                            setQuantities(prev => ({
+                              ...prev,
+                              [product._id]: parseInt(e.target.value, 10)
+                            }))
+                          }
+                        />
+                  <div className="sm:hidden p-1 h-8 rounded flex items-center justify-center gap-1">
+                    <input
+                      type="checkbox"
+                      checked={creditSales[product._id] || false}
+                      onChange={() =>
+                        setCreditSales(prev => ({ ...prev, [product._id]: !prev[product._id] }))
+                      }
+                    />Credit Sale
+                    </div>
+                </div>
+                <div>
+                  <div className="flex flex-col items-end gap-1">
+                    <div className="grid grid-cols-2 gap-1">
+                      <button
+                        onClick={() => handleSell(product)}
+                        className="bg-green-600 text-white px-3 h-8 py-1 rounded hover:bg-green-700 whitespace-nowrap"
+                      >
+                        Sell <span className="sm:hidden">({formatWhole((quantities[product._id] || 1) * (sellingPrices[product._id] || product.sellingPrice))})</span>
+                      </button>
+                      <button
+                        onClick={() => handleAddToCart(product)}
+                        className="min-w-[75px] bg-blue-500 text-white px-3 py-1 h-8 rounded hover:bg-blue-600 whitespace-nowrap"
+                      >
+                        + Cart
+                      </button>
+                    </div>
+                  </div>
+                  </div>
+                </div>
+            </div>
+
+              {creditSales[product._id] && (
+                <div className="flex gap-2 items-center mt-2 max-w-xl">
+                    <select
+                      className="border p-1 h-8 rounded max-w-[45%]"
+                      value={customerNames[product._id] || ""}
+                      onChange={(e) => setCustomerNames(prev => ({ ...prev, [product._id]: e.target.value }))}
+                    >
+                      <option value="">Select customer...</option>
+                      {customers.map(c => (
+                        <option key={c._id} value={c.name}>{c.name}</option>
+                      ))}
+                    </select>
+                     {/* Enter customer name */}
+    <input
+      type="text"
+      className="border p-1 h-8 rounded max-w-[45%]"
+      placeholder="Customer name..."
+      value={ customerNames[product._id] || "" }
+      onChange={(e) =>
+        setCustomerNames(prev => ({
+          ...prev,
+          [product._id]: e.target.value,
+        }))
+      }
+    />
+                  <input
+                    type="number"
+                    placeholder="Deposit"
+                    className="border p-1 rounded max-w-[125px]"
+                    value={downPayment[product._id] ?? ""}
+                    onChange={(e) =>
+                      setDownPayment(prev => ({ ...prev, [product._id]: parseInt(e.target.value, 10) || 0 }))
+                    }
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Col 2: Cart + Low Stock Preview */}
+      <div className="flex flex-col gap-4 w-full">
         <Cart
           cart={cart}
           onUpdateQty={handleCartUpdateQty}
@@ -514,28 +528,31 @@ export default function POS() {
           onMakeSale={handleCartSale}
           customers={customers}
         />
-
-      {/* Col 3: Outstanding Credit Sales */}
+        {/* Outstanding Credits Summary */}
         {customerCredits.length > 0 && (
-          <div className="bg-yellow-50 border border-yellow-300 p-4 rounded">
-            <h2 className="text-lg font-semibold text-yellow-700 mb-2">
-              Outstanding Credits ({customerCredits.length} {customerCredits.length === 1 ? "customer" : "customers"})
+          <div className="bg-amber-50 border border-amber-200 p-5 rounded-2xl shadow-sm space-y-3">
+            <h2 className="text-base font-bold text-amber-900 flex items-center justify-between">
+              <span>📋 Customer Debts</span>
+              <span className="badge-warning">KES {grandCreditTotal.toLocaleString()}</span>
             </h2>
-            <div className="space-y-3">
+            <div className="space-y-2 max-h-[350px] px-1 overflow-y-auto">
               {customerCredits.map(customer => (
-                <div key={customer.name} className="bg-white border border-yellow-200 rounded p-2 text-sm">
-                  <div className="font-semibold text-gray-800 mb-1">{customer.name}</div>
+                <div key={customer.name} className="bg-white border border-amber-200 rounded-xl p-3 text-xs space-y-1">
+                  <div className="font-bold text-slate-900 flex justify-between">
+                    <span>{customer.name}</span>
+                    <div className="text-xs text-slate-500">
+                      <span className="text-gray-500">Date: {new Date(customer.date).toLocaleDateString() || "N/A"}</span>
+                    </div>
+                  </div>
                   {customer.entries.map((e, i) => (
-                    <div key={i} className="text-gray-600 text-xs">
-                      {e.label}{e.detail ? ` — ${e.detail}` : ""}: KES {formatWhole(e.owed)}
+                    <div key={i} className="text-slate-500">
+                      {e.label}: KES {e.owed}
                     </div>
                   ))}
-                  <div className="text-red-600 font-bold mt-1">Total: KES {formatWhole(customer.totalOwed)}</div>
+                  <hr />
+                  <div className="flex justify-between pt-2 text-rose-600 font-bold"><span className="pr-4">Total Owed:</span> <span>KES {customer.totalOwed}</span></div>
                 </div>
               ))}
-            </div>
-            <div className="mt-2 pt-2 border-t border-yellow-300 text-sm font-semibold text-yellow-800">
-              Grand total owed: KES {formatWhole(grandCreditTotal)}
             </div>
           </div>
         )}
@@ -560,11 +577,11 @@ export default function POS() {
 
             <div className="max-h-80 overflow-y-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 uppercase">
-                  <tr>
-                    <th className="p-2.5">Spare Part Name</th>
-                    <th className="p-2.5">Stock Left</th>
-                    <th className="p-2.5">Status</th>
+                <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                  <tr className="">
+                    <th className="p-2 w-[65%]">Spare Part Name</th>
+                    <th className="py-2">Stock Left</th>
+                    <th className="p-2">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -572,7 +589,7 @@ export default function POS() {
                     const threshold = product.lowStockThreshold != null ? Number(product.lowStockThreshold) : 2;
                     const isOut = Number(product.stock) <= 0;
                     return (
-                      <tr key={product._id} className="hover:bg-slate-50">
+                      <tr key={product._id} className="hover:bg-slate-50 py-0.5">
                         <td className="font-semibold text-slate-900">{product.name}</td>
                         <td className={`font-bold ${isOut ? 'text-rose-600' : 'text-amber-600'}`}>
                           {product.stock} units
@@ -587,15 +604,6 @@ export default function POS() {
                   })}
                 </tbody>
               </table>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <button
-                onClick={() => setShowLowStockModal(false)}
-                className="btn-secondary"
-              >
-                Close
-              </button>
             </div>
           </div>
         </div>

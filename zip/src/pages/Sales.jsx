@@ -1,4 +1,3 @@
-// Sales.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { db } from "../db";
 import { formatWhole } from "../utils/format";
@@ -8,6 +7,7 @@ import MonthlySummary from "../components/MonthlySummary";
 import SaleList from "../components/SaleList";
 import EditSaleModal from "../components/EditSaleModal";
 import ProductSummary from "../components/ProductSummary";
+import CustomerSummary from "../components/CustomerSummary";
 import { useAuth } from "../context/AuthContext";
 
 export default function Sales() {
@@ -224,49 +224,92 @@ export default function Sales() {
 
   return (
     <div className="p-4 pb-32 max-w-xl">
-      <h1 className="text-xl font-bold mb-4">Today's Sales</h1>
+      <h1 className="text-xl font-bold mb-4">Sales Histories</h1>
 
-      <div className="flex flex-wrap gap-2 mb-6">
-        <button onClick={() => setViewMode("todaySales")} className={`px-3 py-1 rounded ${viewMode === "todaySales" ? "bg-blue-600 text-white" : "bg-gray-200"}`}>Daily Sales</button>
-        <button onClick={() => setViewMode("productSummary")} className={`px-3 py-1 rounded ${viewMode === "productSummary" ? "bg-blue-600 text-white" : "bg-gray-200"}`}>Daily Summaries by Product</button>
-        <button onClick={() => setViewMode("weekly")} className={`px-3 py-1 rounded ${viewMode === "weekly" ? "bg-blue-600 text-white" : "bg-gray-200"}`}>Weekly</button>
-        <button onClick={() => setViewMode("monthly")} className={`px-3 py-1 rounded ${viewMode === "monthly" ? "bg-blue-600 text-white" : "bg-gray-200"}`}>Monthly</button>
+      <div className="mb-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
+        <div className="flex gap-1 overflow-x-auto">
+          {[
+            ["todaySales", "Daily Sales"],
+            ["weekly", "Weekly"],
+            ["monthly", "Monthly"],
+            ["productSummary", "By Product"],
+            ["customerSummary", "By Customer"],
+          ].map(([mode, label]) => (
+            <button
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              className={`whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-medium transition-all duration-200 ${
+                viewMode === mode
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {viewMode === "todaySales" && (
         <div>
-          <div className="space-y-2">
-            Date: <input className="bg-red-500" type="date" name="datePick" id="datePick" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); loadSales(e.target.value); }} />
-            <div className="mb-4">
-              <div>No. of Items Sold: {summary.totalSales}</div>
-              <div>Total Revenue: KES {formatWhole(summary.totalRevenue)}</div>
-              <div>Total Due Sales: KES {formatWhole(summary.totalCreditSales)}</div>
+          <div className="mb-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Revenue</p>
+                <p className="mt-0.5 truncate text-lg font-bold text-slate-900">KES {formatWhole(summary.totalRevenue).toLocaleString()}.00</p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Due</p>
+                <p className="mt-0.5 truncate text-lg font-bold text-amber-600">KES {formatWhole(summary.totalCreditSales).toLocaleString()}.00</p>
+              </div>
+
               {canViewProfit && (
-                <div>Total Profit: KES {formatWhole(summary.totalProfit)}</div>
+                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Profit</p>
+                  <p className="mt-0.5 truncate text-lg font-bold text-emerald-600">KES {formatWhole(summary.totalProfit).toLocaleString()}.00</p>
+                </div>
               )}
             </div>
-
-            <div className="flex gap-2 items-center mb-2">
-              <button
+            </div>
+<div className="rounded-2xl mb-2 border border-slate-200 bg-white p-2 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <button
                 onClick={() => setShowCreditList(prev => !prev)}
-                className="px-3 py-1 rounded bg-yellow-400 text-black"
-              >
+                className={`inline-flex items-center rounded border ml-4 px-4 py-1.5 text-sm font-semibold transition ${
+                  showCreditList
+                    ? "border-orange-300 bg-orange-50 text-orange-800"
+                    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                }`}
+              > <input type="checkbox" name="" className="mr-1" id="" readOnly checked={showCreditList ? true : false}/>
                 {showCreditList ? "Hide" : "Show"} Credit Sales
               </button>
+              <div className="">
+                <span className="text-sm font-semibold text-slate-700">Sales date: </span>              
+              <input
+                className="rounded-lg py-1.5 border ml-2 border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                type="date"
+                name="datePick"
+                id="datePick"
+                value={selectedDate}
+                onChange={(e) => { setSelectedDate(e.target.value); loadSales(e.target.value); }}
+              />
+              </div>
+            </div>
             </div>
 
-            <div className="flex gap-2 mb-2">
+            <div className="flex gap-2">
               <input
                 type="text"
                 placeholder="Search by product or customer..."
-                className="flex-1 p-2 border rounded text-sm"
+                className="min-w-[75px] flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                 value={salesSearch}
                 onChange={e => setSalesSearch(e.target.value)}
               />
               <select
                 value={searchRange}
                 onChange={e => setSearchRange(e.target.value)}
-                className="border rounded p-2 text-sm bg-white"
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
               >
                 <option value="week">Past 7 days</option>
                 <option value="month">Past 30 days</option>
@@ -298,7 +341,6 @@ export default function Sales() {
               handleSaveEdit={handleSaveEdit}
               handleCancelEdit={handleCancelEdit}
             />
-          </div>
         </div>
       )}
 
@@ -312,6 +354,10 @@ export default function Sales() {
 
       {viewMode === "monthly" && (
         <MonthlySummary allSales={allSales} selectedDate={selectedDate} />
+      )}
+
+    {viewMode === "customerSummary" && (
+        <CustomerSummary allSales={allSales} selectedDate={selectedDate} />
       )}
     </div>
   );

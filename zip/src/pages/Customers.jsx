@@ -109,7 +109,7 @@ export default function Customers() {
   }, [customers, search]);
 
   return (
-    <div className="px-4 pb-32 px-6">
+    <div className="px-4 pb-32 max-w-4xl">
       <div className="grid gap-4 grid-cols-2">
         <div className="border rounded p-4 bg-white shadow-sm">
           <h2 className="text-lg font-semibold mb-3">{editingCustomer ? "Edit Customer" : "Add Customer"}</h2>
@@ -176,7 +176,7 @@ export default function Customers() {
             onChange={(e) => setSearch(e.target.value)}
             className="w-full border rounded p-2 mb-3"
           />
-          <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+          <div className="space-y-2 max-h-[60vh] p-1 overflow-y-auto">
             {filteredCustomers.length === 0 ? (
               <div className="text-sm text-gray-500">No customers found.</div>
             ) : (

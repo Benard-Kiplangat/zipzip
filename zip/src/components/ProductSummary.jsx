@@ -128,8 +128,7 @@ export default function ProductSummary({ allSales = [] }) {
 
   return (
     <>
-      <h2 className="text-lg font-semibold mb-2 mt-4">Sales Summary by Product</h2>
-      <p className="text-xs text-gray-400 mb-3">Click a product to see its full sales history.</p>
+      <p className="text-xs text-gray-400 mb-2">Click a product to see its full sales history.</p>
 
       <div className="flex gap-2 mb-2">
         <input
