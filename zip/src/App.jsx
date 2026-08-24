@@ -17,7 +17,7 @@ function RequireAuth({ children }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh] text-slate-500 font-medium">
-        <div className="animate-spin mr-2">🛠️</div> Loading Imara Auto Spares POS...
+        <div className="animate-spin mr-2">🛠️</div> Loading Mogogosiek Auto Spares POS...
       </div>
     );
   }

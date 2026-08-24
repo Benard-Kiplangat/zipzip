@@ -1,12 +1,12 @@
 {
   "name": "Mogogosiek-AutoSpares-POS",
-  "version": "0.2.3",
+  "version": "0.2.5",
   "author": "Benard Kiplangat",
   "description": "POS application for an Autospares Shop",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build --outDir \"C:\\Users\\Ben\\Documents\\imara-auto-spares-pos\\pos\"",
+    "build": "vite build --outDir \"C:\\Users\\Ben\\Documents\\mogogosiek-autospares\\pos\"",
     "preview": "vite preview",
     "electron": "electron .",
     "dist": "electron-builder",
@@ -42,8 +42,8 @@
     "wait-on": "^8.0.0"
   },
   "build": {
-  "appId": "com.ben.imaraautospares",
-  "productName": "Imara Auto Spares POS",
+  "appId": "com.ben.mogogosiekautospares",
+  "productName": "Mogogosiek AutoSpares POS",
 
   "files": [
     "electron/**/*",

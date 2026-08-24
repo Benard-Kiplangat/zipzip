@@ -162,6 +162,14 @@ export default function POS() {
     }
 
     const total = qty * (sellingPrices[product._id] || product.sellingPrice);
+    const now = new Date().toISOString();
+
+const initialPayment = Number(
+  downPayment[product._id] || 0
+);
+
+const { currentUser } = ""
+
     const profit = total - (product.costPrice * qty);
 
     const sale = {
@@ -176,6 +184,7 @@ export default function POS() {
       timestamp: new Date().toISOString(),
       isCreditSale,
       dwnPayment: downPayment[product._id] || 0,
+      paymentHistory: [],
       customerName: isCreditSale ? (customerNames[product._id] || "").trim() : "",
     };
 
@@ -280,6 +289,8 @@ export default function POS() {
       const product = productIndex.get(item.product._id);
       const total = item.qty * item.sellingPrice;
       const profit = total - (product.costPrice * item.qty);
+      const now = new Date().toISOString();
+
 
       const sale = {
         _id: `${bulkSaleId}-${i}`,
@@ -294,6 +305,7 @@ export default function POS() {
         isCreditSale,
         customerName: isCreditSale ? customerName.trim() : "",
         dwnPayment: 0,
+        paymentHistory: [],
         bulkDwnPayment: isCreditSale ? Number(dwnPayment) : 0,
         isBulkSale: true,
         bulkSaleId,
@@ -375,7 +387,6 @@ export default function POS() {
   const grandCreditTotal = useMemo(() => customerCredits.reduce((s, c) => s + c.totalOwed, 0), [customerCredits]);
 
   const [showLowStockModal, setShowLowStockModal] = useState(false);
- 
 
   return (
     <div className="p-4 pb-8 flex flex-col lg:flex-row gap-4">

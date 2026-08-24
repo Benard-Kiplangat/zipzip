@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
 import { formatWhole } from "../utils/format";
+import { db } from "../../../../nursery-management-system/src/db";
 
 function groupSales(sales) {
   const ordered = [...sales];
@@ -34,6 +35,7 @@ function BulkSaleGroup({
   handleDeleteSale,
   handleDeleteSaleWithStockRestore,
   handleMarkBulkPaid,
+  handleLoadSales,
   handleReceiptDownload,
 }) {
   const { canViewProfit } = useAuth();
@@ -63,12 +65,12 @@ function BulkSaleGroup({
             <span className="text-sm font-semibold text-yellow-700">{customerName}</span>
           )}
         </div>
-         <div className="text-sm font-bold text-right">
-           <div>KES {formatWhole(totalAmount)}</div>
-           {canViewProfit && (
-             <div className="text-gray-500 text-xs">Profit: {formatWhole(totalProfit)}</div>
-           )}
-         </div>
+        <div className="text-sm font-bold text-right">
+          <div>KES {formatWhole(totalAmount)}</div>
+          {canViewProfit && (
+            <div className="text-gray-500 text-xs">Profit: {formatWhole(totalProfit)}</div>
+          )}
+        </div>
       </div>
 
       {isCreditSale && (
@@ -131,6 +133,7 @@ export default function SaleList({
   handleDeleteSale,
   handleDeleteSaleWithStockRestore,
   handleMarkBulkPaid,
+  handleLoadSales
 }) {
   const grouped = useMemo(() => groupSales(sales), [sales]);
   const creditSales = useMemo(() => sales.filter(s => s.isCreditSale), [sales]);
@@ -146,6 +149,123 @@ export default function SaleList({
     }
   };
 
+  const getPaymentInfo = sale => {
+    let bulkTotal;
+    let bulkDwnPayment;
+    let amountOwed;
+
+
+        let paymentHistory = Array.isArray(sale.paymentHistory)
+      ? sale.paymentHistory
+      : [];
+
+    if (sale.isBulkGroup) {
+       paymentHistory = Array.isArray(sale.items[0]?.paymentHistory)
+      ? sale.items[0]?.paymentHistory
+      : [];
+              bulkTotal = sale.items.reduce((s, i) => s + (i.total || 0), 0);
+              bulkDwnPayment = sale.items[0]?.bulkDwnPayment || 0;
+              amountOwed = bulkTotal - bulkDwnPayment;
+    }
+    const total = Number(bulkTotal || sale.total || 0);
+    const dwnPayment = Number(bulkDwnPayment || sale.dwnPayment || 0)
+
+    const paid = paymentHistory.length > 0
+      ? (paymentHistory.reduce(
+        (sum, payment) =>
+          sum + Number(payment.amount || 0),
+        0
+      ) + dwnPayment)
+      : Number(bulkDwnPayment || sale.dwnPayment || 0);
+
+    return {
+      total,
+      paid,
+      dwnPayment,
+      balance: Math.max(0, total - paid),
+      paymentHistory,
+    };
+  };
+
+  const handleAddPayment = async (
+    sale,
+    amount,
+    method = "cash",
+    note = ""
+  ) => {
+    const paymentAmount = Number(amount);
+
+    if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+      alert("Please enter a valid payment amount.");
+      return;
+    }
+
+    const paymentInfo = getPaymentInfo(sale);
+
+    if (paymentAmount > paymentInfo.balance) {
+      alert(
+        `Payment cannot exceed the outstanding balance of KES ${paymentInfo.balance}.`
+      );
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    const paymentEntry = {
+      amount: paymentAmount,
+      date: now,
+      recordedBy: "Staff",
+      method,
+      note: note || "Additional payment",
+    };
+
+    let existingHistory = Array.isArray(sale.paymentHistory)
+      ? sale.paymentHistory
+      : [];
+
+    const newPaidAmount =
+      paymentInfo.paid + paymentAmount;
+let updatedSale = {
+      ...sale,
+      bulkSaleId: sale.bulkSaleId,
+      paymentHistory: [
+        ...existingHistory,
+        paymentEntry,
+      ],
+      dwnPayment: newPaidAmount,
+      isCreditPaid:
+        newPaidAmount >= paymentInfo.total,
+      updatedAt: now,
+    };
+
+    if (sale.isBulkGroup) {
+      existingHistory = Array.isArray(sale.items[0].paymentHistory)
+      ? sale.items[0].paymentHistory
+      : [];
+
+      updatedSale = {
+      ...sale.items[0],
+      bulkSaleId: sale.bulkSaleId,
+      paymentHistory: [
+        ...existingHistory,
+        paymentEntry,
+      ],
+      dwnPayment: newPaidAmount,
+      isCreditPaid:
+        newPaidAmount >= paymentInfo.total,
+      updatedAt: now,
+    };
+  }
+    try {
+      await db.put(updatedSale);
+      alert("Additional payment is being recorded.")
+      handleLoadSales();
+    } catch (error) {
+      console.error("Failed to record payment:", error);
+      alert("Failed to record payment.");
+    }
+  };
+
   return (
     <div className="flex flex-col gap-2 mt-2">
       {showCreditList && (
@@ -154,39 +274,161 @@ export default function SaleList({
           {creditSales.length === 0 && <div className="text-sm text-gray-600">No credit sales.</div>}
           {groupedCreditSales.map((entry, idx) => {
             if (entry.isBulkGroup) {
-                          const bulkTotal = entry.items.reduce((s, i) => s + (i.total || 0), 0);
+              const bulkTotal = entry.items.reduce((s, i) => s + (i.total || 0), 0);
               const bulkDwnPayment = entry.items[0]?.bulkDwnPayment || 0;
               const amountOwed = bulkTotal - bulkDwnPayment;
               const isPaid = entry.items[0]?.isCreditPaid || false;
+              const payment = getPaymentInfo(entry);
               return (
-                <div key={`credit-bulk-${entry.bulkSaleId}`} className="max-w-xl px-3 pt-2 pb-2 rounded border bg-red-50">
+                <div key={`credit-bulk-${entry.bulkSaleId}`} className="max-w-xl px-3 pt-3 pb-2 rounded border bg-red-50">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded">BULK CREDIT</span>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                      <div>
+                        <span className="bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 mr-2 rounded">BULK CREDIT</span>
                         <span className="font-semibold">{entry.items[0]?.customerName || <span className="italic text-gray-400">No name</span>}</span>
+                        </div>
+                        <div className="flex items-end gap-2 ml-2 flex-shrink-0">
+                      {isPaid
+                        ? <span className="text-green-600 font-semibold text-sm">PAID</span>
+                        : <>
+                          <span className="text-red-600 font-semibold text-sm">UNPAID</span>
+                          <button
+                            onClick={() => {handleMarkBulkPaid(entry.items)}}
+                            className="bg-green-600 text-white text-xs px-2 py-1 rounded hover:bg-green-700 whitespace-nowrap"
+                          >
+                            Mark Paid
+                          </button>
+                        </>
+                      }
+                    </div>
                       </div>
                       {entry.items.map((s, i) => (
                         <div key={i} className="text-sm text-gray-700">{s.quantity} × {s.name} — KES {formatWhole(s.total)}</div>
                       ))}
-                      <div className="text-sm text-gray-600 mt-1">
-                        Total: KES {formatWhole(bulkTotal)}
-                        {bulkDwnPayment > 0 && ` | Paid: KES ${formatWhole(bulkDwnPayment)} | Owes: KES ${formatWhole(amountOwed)}`}
+                      {/* Payment */}
+                      <div className="border-t mt-1 pt-1 pb-2">
+                          <div className="">
+                            <div className="text-sm font-semibold mb-2">
+                              Payment History
+                            </div>
+                            <div className="space-y-1">
+                              <div className="text-xs flex items-center justify-between gap-2"
+                                >
+                                  <span>
+                                    
+                                    {"Down Payment"}
+                                    
+                                    {" on "}
+                                    
+                                    {new Date(entry.timestamp).toLocaleDateString()}
+
+                                    {" "}
+                                  </span>
+
+                                  <span className="font-semibold text-green-600">
+                                    KES {Number(payment.dwnPayment || 0).toLocaleString()}
+                                  </span>
+                                </div>
+                              {payment.paymentHistory.map((entry, index) => (
+                                <div
+                                  key={`${entry.bulkSaleId}-payment-${index}`}
+                                  className="text-xs flex items-center justify-between gap-2"
+                                >
+                                  <span>
+                                    
+                                    {"Additional Payment"}
+                                    
+                                    {" on "}
+
+                                    {" "}
+                                    {new Date(entry.date).toLocaleDateString()}
+                                    {" "}
+
+                                  </span>
+
+                                  <span className="font-semibold text-green-600">
+                                    KES {Number(entry.amount || 0).toLocaleString()}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                        {(payment.balance) > 0 && (
+                          <div className="border-t py-1 mt-1 pt-2">
+                            <div className="flex justify-center gap-2">
+                              <input
+                                type="number"
+                                min="1"
+                                max={payment.balance}
+                                placeholder={`Add payment (max ksh. ${payment.balance})`}
+                                className="border rounded p-1 flex-1"
+                                id={`payment-${entry.bulkSaleId}`}
+                              />
+
+                              <button
+                                onClick={() => {
+                                  const input = document.getElementById(
+                                    `payment-${entry.bulkSaleId}`
+                                  );
+
+                                  const amount = Number(input?.value || 0);
+
+                                  handleAddPayment(
+                                    entry,
+                                    amount,
+                                    "cash",
+                                    "Additional payment"
+                                  );
+
+                                  if (input) {
+                                    input.value = "";
+                                  }
+                                }}
+                                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded font-semibold"
+                              >
+                                Add
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex justify-between gap-3 mt-1 pt-3 border-t text-sm">
+                      <div>
+                        <div className="text-xs text-gray-500">
+                          Total
+                        </div>
+                        <div className="font-semibold">
+                          KES {payment.total}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div>
+                          <div className="text-xs text-gray-500">
+                            Paid
+                          </div>
+                          <div className="font-semibold text-green-600">
+                            KES {payment.paid}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs text-gray-500">
+                          Balance
+                        </div>
+                        <div
+                          className={`font-semibold ${payment.balance > 0
+                              ? "text-red-600"
+                              : "text-green-600"
+                            }`}
+                        >
+                          KES {payment.balance}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-1 ml-2 flex-shrink-0">
-                      {isPaid
-                        ? <span className="text-green-600 font-semibold text-sm">PAID</span>
-                        : <>
-                            <span className="text-red-600 font-semibold text-sm">UNPAID</span>
-                            <button
-                              onClick={() => handleMarkBulkPaid(entry.items)}
-                              className="bg-green-600 text-white text-xs px-2 py-1 rounded hover:bg-green-700 whitespace-nowrap"
-                            >
-                              Mark Paid
-                            </button>
-                          </>
-                      }
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -194,26 +436,145 @@ export default function SaleList({
             }
 
             const sale = entry;
+            const payment = getPaymentInfo(sale);
             return (
-              <div key={`credit-${idx}`} className="max-w-xl px-3 pt-2 pb-2 rounded flex justify-between border bg-red-50">
-                <div>
-                  <div className="font-medium">{sale.quantity} × {sale.name}</div>
+              <div key={`credit-${idx}`} className="max-w-xl px-8 pt-2 pb-2 rounded border bg-red-50">
+                <div className="col-span-3">
                   {sale.customerName && (
                     <div className="text-sm text-yellow-700 font-medium">Customer: {sale.customerName}</div>
                   )}
-                  <div className="text-sm text-gray-600">
-                    Total: KES {formatWhole(sale.total)}
-                    {sale.dwnPayment > 0 && ` | Paid: KES ${formatWhole(sale.dwnPayment)} | Owes: KES ${formatWhole(sale.total - sale.dwnPayment)}`}
+                  <div className="font-medium">{sale.quantity} × {sale.name}</div>
+                  {/* Payment */}
+                  <div className="border-t mt-2 pt-3">
+                    <div className="flex justify-between gap-3 gap-3 text-sm">
+                      <div>
+                        <div className="text-xs text-gray-500">
+                          Total
+                        </div>
+                        <div className="font-semibold">
+                          KES {payment.total}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div>
+                          <div className="text-xs text-gray-500">
+                            Paid
+                          </div>
+                          <div className="font-semibold text-green-600">
+                            KES {payment.paid}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs text-gray-500">
+                          Balance
+                        </div>
+                        <div
+                          className={`font-semibold ${payment.balance > 0
+                              ? "text-red-600"
+                              : "text-green-600"
+                            }`}
+                        >
+                          KES {payment.balance}
+                        </div>
+                      </div>
+                    </div>
+
+                    {payment.paymentHistory.length > 0 && (
+                      <div className="mt-3 border-t pt-3">
+                        <div className="text-sm font-semibold mb-2">
+                          Payment History
+                        </div>
+
+                        <div className="space-y-1">
+                          {payment.paymentHistory.map((entry, index) => (
+                            <div
+                              key={`${sale._id}-payment-${index}`}
+                              className="text-xs flex items-center justify-between gap-2"
+                            >
+                              <span>
+                                [
+                                {" "}
+                                {new Date(entry.date).toLocaleDateString()}
+                                {" · "}
+                                {entry.method || "cash"}
+                                {" "}
+                                ]
+                              </span>
+
+                              <span className="font-semibold text-green-600">
+                                KES {Number(entry.amount || 0).toLocaleString()}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {payment.balance > 0 && (
+                      <div className="my-2 border-t pt-3">
+                        <div className="flex justify-center gap-2">
+                          <input
+                            type="number"
+                            min="1"
+                            max={payment.balance}
+                            placeholder={`Add payment (max ksh. ${payment.balance})`}
+                            className="border rounded p-1 flex-1"
+                            id={`payment-${sale._id}`}
+                          />
+
+                          <button
+                            onClick={() => {
+                              const input = document.getElementById(
+                                `payment-${sale._id}`
+                              );
+
+                              const amount = Number(input?.value || 0);
+
+                              handleAddPayment(
+                                sale,
+                                amount,
+                                "cash",
+                                "Additional payment"
+                              );
+
+                              if (input) {
+                                input.value = "";
+                              }
+                            }}
+                            className="bg-green-600 hover:bg-green-700 h-8 text-white px-3 py-1 rounded"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    <div className="text-xs text-gray-500 my-3">
+                      Payment status:{" "}
+                      <span className="font-medium">
+                        {payment.balance <= 0 ? (
+                          <span className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded">
+                            PAID
+                          </span>
+                        ) : payment.paid > 0 ? (
+                          <span className="text-xs font-bold bg-yellow-100 text-yellow-700 px-2 py-1 rounded">
+                            PARTIALLY PAID
+                          </span>
+                        ) : (
+                          <span className="text-xs font-bold bg-red-100 text-red-700 px-2 py-1 rounded">
+                            UNPAID
+                          </span>
+                        )}
+                      </span>
+                    </div>
                   </div>
+                  <hr />
                   <div className="mt-1 flex gap-2">
                     <button onClick={() => handleEditSale(sale)} className="text-green-600 text-sm">Edit</button>
                     <button onClick={() => handleDeleteSaleWithStockRestore(sale)} className="text-blue-600 text-sm">Delete & Update Stock</button>
                   </div>
-                </div>
-                <div className="text-sm flex-shrink-0 ml-2">
-                  {sale.isCreditPaid
-                    ? <span className="text-green-600 font-semibold">PAID</span>
-                    : <span className="text-red-600 font-semibold">UNPAID</span>}
                 </div>
               </div>
             );
@@ -241,6 +602,7 @@ export default function SaleList({
               handleDeleteSaleWithStockRestore={handleDeleteSaleWithStockRestore}
               handleMarkBulkPaid={handleMarkBulkPaid}
               handleReceiptDownload={handleReceiptDownload}
+              handleLoadSales={handleLoadSales}
             />
           );
         }

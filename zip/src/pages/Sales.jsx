@@ -163,6 +163,17 @@ export default function Sales() {
     return total - down;
   };
 
+  const handleLoadSales = async () => {
+    try {
+      loadSales();
+      console.log("loaded.ll")
+    }
+    catch (err) {
+      console.error('Failed to reload', err);
+      alert('Something went wrong. Please try again.');
+    }
+  }
+
   const handleMarkBulkPaid = async (items) => {
     if (!window.confirm(`Mark all ${items.length} items in this bulk credit as paid?`)) return;
     const bulkTotal = items.reduce((sum, s) => sum + s.total, 0);
@@ -333,6 +344,7 @@ export default function Sales() {
               handleDeleteSale={handleDeleteSale}
               handleDeleteSaleWithStockRestore={handleDeleteSaleWithStockRestore}
               handleMarkBulkPaid={handleMarkBulkPaid}
+              handleLoadSales={handleLoadSales}
             />
 
             <EditSaleModal

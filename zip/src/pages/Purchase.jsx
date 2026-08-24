@@ -284,13 +284,6 @@ export default function Purchase() {
               <div className="flex items-center gap-2">
                 <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="border p-1 rounded" />
                 <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="border p-1 rounded" />
-                <button onClick={() => {
-                  const d = new Date();
-                  const f = new Date();
-                  f.setDate(d.getDate() - 7);
-                  setDateFrom(f.toISOString().slice(0,10));
-                  setDateTo(d.toISOString().slice(0,10));
-                }} className="px-2 py-1 bg-gray-100 rounded">Last 7d</button>
               </div>
             </div>
             <h3 className="text-md font-semibold mb-3">Recent Purchases</h3>
