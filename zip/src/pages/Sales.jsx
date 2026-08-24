@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { db } from "../db";
 import { formatWhole } from "../utils/format";
-import { generateReceipt } from "../utils/generateReceipt";
 import WeeklySummary from "../components/WeeklySummary";
 import MonthlySummary from "../components/MonthlySummary";
 import SaleList from "../components/SaleList";
@@ -134,15 +133,35 @@ export default function Sales() {
   const handleSaveEdit = async () => {
     if (!editingSale) return;
     if (!editingSale.name) { alert('Product name is required'); return; }
+
+    const now = new Date().toISOString();
+    const existingHistory = Array.isArray(editingSale.paymentHistory) ? editingSale.paymentHistory : [];
+    const historyPaid = existingHistory.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const rawDwn = Number(editingSale.dwnPayment || 0);
+    const initialDwn = editingSale.initialDwnPayment !== undefined
+      ? Number(editingSale.initialDwnPayment)
+      : Math.max(0, rawDwn - historyPaid);
+    const alreadyPaid = initialDwn + historyPaid;
+    const total = Number(editingSale.total) || 0;
+    const finalBalance = Math.max(0, total - alreadyPaid);
+
+    // When marking as paid via edit, record the remaining balance as a final payment entry
+    const newHistory = (editingSale.isCreditPaid && finalBalance > 0)
+      ? [...existingHistory, { amount: finalBalance, date: now, method: "cash", note: "Final payment (Edit)", recordedBy: "Staff" }]
+      : existingHistory;
+
     const toSave = {
       ...editingSale,
       quantity: Number(editingSale.quantity),
       costPrice: Number(editingSale.costPrice),
-      total: Number(editingSale.total),
-      profit: Number(editingSale.profit) || (Number(editingSale.total) - (Number(editingSale.costPrice) * Number(editingSale.quantity))),
+      total,
+      profit: Number(editingSale.profit) || (total - (Number(editingSale.costPrice) * Number(editingSale.quantity))),
       isCreditSale: !!editingSale.isCreditSale,
       isCreditPaid: !!editingSale.isCreditPaid,
-      dwnPayment: editingSale.isCreditPaid ? editingSale.total : editingSale.dwnPayment,
+      dwnPayment: initialDwn,
+      initialDwnPayment: initialDwn,
+      paymentHistory: newHistory,
+      updatedAt: now,
     };
     try {
       await db.put(toSave);
@@ -166,24 +185,45 @@ export default function Sales() {
   const handleLoadSales = async () => {
     try {
       loadSales();
-      console.log("loaded.ll")
     }
     catch (err) {
       console.error('Failed to reload', err);
       alert('Something went wrong. Please try again.');
     }
-  }
+  };
 
   const handleMarkBulkPaid = async (items) => {
     if (!window.confirm(`Mark all ${items.length} items in this bulk credit as paid?`)) return;
-    const bulkTotal = items.reduce((sum, s) => sum + s.total, 0);
+
+    const now = new Date().toISOString();
+    const bulkTotal = items.reduce((sum, s) => sum + (s.total || 0), 0);
+    const firstItem = items[0];
+
+    // Compute how much has already been paid (initial down + all history entries)
+    const existingHistory = Array.isArray(firstItem?.paymentHistory) ? firstItem.paymentHistory : [];
+    const historyPaid = existingHistory.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const rawDwn = Number(firstItem?.bulkDwnPayment || firstItem?.dwnPayment || 0);
+    const initialDwn = firstItem?.initialBulkDwnPayment !== undefined
+      ? Number(firstItem.initialBulkDwnPayment)
+      : Math.max(0, rawDwn - historyPaid);
+    const alreadyPaid = initialDwn + historyPaid;
+    const finalBalance = Math.max(0, bulkTotal - alreadyPaid);
+
+    // Build new history with the final payment entry (only if there's a balance remaining)
+    const newHistory = finalBalance > 0
+      ? [...existingHistory, { amount: finalBalance, date: now, method: "cash", note: "Final payment (Marked Paid)", recordedBy: "Staff" }]
+      : existingHistory;
+
     try {
       for (const item of items) {
         await db.put({
           ...item,
           isCreditPaid: true,
-          dwnPayment: item.total,
-          bulkDwnPayment: bulkTotal,
+          dwnPayment: initialDwn,
+          initialBulkDwnPayment: initialDwn,
+          bulkDwnPayment: initialDwn,
+          paymentHistory: newHistory,
+          updatedAt: now,
         });
       }
       loadSales();
@@ -282,77 +322,78 @@ export default function Sales() {
                 </div>
               )}
             </div>
-            </div>
-<div className="rounded-2xl mb-2 border border-slate-200 bg-white p-2 shadow-sm">
-                        <div className="flex items-center justify-between">
-                          <button
+          </div>
+          <div className="rounded-2xl mb-2 border border-slate-200 bg-white p-2 shadow-sm">
+            <div className="flex items-center justify-between">
+              <button
                 onClick={() => setShowCreditList(prev => !prev)}
                 className={`inline-flex items-center rounded border ml-4 px-4 py-1.5 text-sm font-semibold transition ${
                   showCreditList
                     ? "border-orange-300 bg-orange-50 text-orange-800"
                     : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
                 }`}
-              > <input type="checkbox" name="" className="mr-1" id="" readOnly checked={showCreditList ? true : false}/>
+              >
+                <input type="checkbox" name="" className="mr-1" id="" readOnly checked={showCreditList ? true : false}/>
                 {showCreditList ? "Hide" : "Show"} Credit Sales
               </button>
               <div className="">
                 <span className="text-sm font-semibold text-slate-700">Sales date: </span>              
-              <input
-                className="rounded-lg py-1.5 border ml-2 border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                type="date"
-                name="datePick"
-                id="datePick"
-                value={selectedDate}
-                onChange={(e) => { setSelectedDate(e.target.value); loadSales(e.target.value); }}
-              />
+                <input
+                  className="rounded-lg py-1.5 border ml-2 border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                  type="date"
+                  name="datePick"
+                  id="datePick"
+                  value={selectedDate}
+                  onChange={(e) => { setSelectedDate(e.target.value); loadSales(e.target.value); }}
+                />
               </div>
             </div>
-            </div>
+          </div>
 
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Search by product or customer..."
-                className="min-w-[75px] flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                value={salesSearch}
-                onChange={e => setSalesSearch(e.target.value)}
-              />
-              <select
-                value={searchRange}
-                onChange={e => setSearchRange(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-              >
-                <option value="week">Past 7 days</option>
-                <option value="month">Past 30 days</option>
-                <option value="all">All time</option>
-              </select>
-            </div>
-            {salesSearch.trim() && (
-              <div className="text-xs text-gray-500 mb-2">
-                {filteredSales.length} result{filteredSales.length !== 1 ? "s" : ""} found
-              </div>
-            )}
-
-            <SaleList
-              sales={visibleSales}
-              showCreditList={showCreditList}
-              setShowCreditList={setShowCreditList}
-              selectedSales={selectedSales}
-              toggleSaleSelection={toggleSaleSelection}
-              isSelected={isSelected}
-              handleEditSale={handleEditSale}
-              handleDeleteSale={handleDeleteSale}
-              handleDeleteSaleWithStockRestore={handleDeleteSaleWithStockRestore}
-              handleMarkBulkPaid={handleMarkBulkPaid}
-              handleLoadSales={handleLoadSales}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Search by product or customer..."
+              className="min-w-[75px] flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+              value={salesSearch}
+              onChange={e => setSalesSearch(e.target.value)}
             />
+            <select
+              value={searchRange}
+              onChange={e => setSearchRange(e.target.value)}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+            >
+              <option value="week">Past 7 days</option>
+              <option value="month">Past 30 days</option>
+              <option value="all">All time</option>
+            </select>
+          </div>
+          {salesSearch.trim() && (
+            <div className="text-xs text-gray-500 mb-2">
+              {filteredSales.length} result{filteredSales.length !== 1 ? "s" : ""} found
+            </div>
+          )}
 
-            <EditSaleModal
-              editingSale={editingSale}
-              handleEditChange={handleEditChange}
-              handleSaveEdit={handleSaveEdit}
-              handleCancelEdit={handleCancelEdit}
-            />
+          <SaleList
+            sales={visibleSales}
+            showCreditList={showCreditList}
+            setShowCreditList={setShowCreditList}
+            selectedSales={selectedSales}
+            toggleSaleSelection={toggleSaleSelection}
+            isSelected={isSelected}
+            handleEditSale={handleEditSale}
+            handleDeleteSale={handleDeleteSale}
+            handleDeleteSaleWithStockRestore={handleDeleteSaleWithStockRestore}
+            handleMarkBulkPaid={handleMarkBulkPaid}
+            handleLoadSales={handleLoadSales}
+          />
+
+          <EditSaleModal
+            editingSale={editingSale}
+            handleEditChange={handleEditChange}
+            handleSaveEdit={handleSaveEdit}
+            handleCancelEdit={handleCancelEdit}
+          />
         </div>
       )}
 
@@ -368,7 +409,7 @@ export default function Sales() {
         <MonthlySummary allSales={allSales} selectedDate={selectedDate} />
       )}
 
-    {viewMode === "customerSummary" && (
+      {viewMode === "customerSummary" && (
         <CustomerSummary allSales={allSales} selectedDate={selectedDate} />
       )}
     </div>
