@@ -64,10 +64,20 @@ export default function POS() {
       customerName: isCreditSale ? customerName : "",
     };
 
-    const updatedProduct = { ...product, stock: product.stock - qty };
+    const latestProduct = await db.get(product._id);
+
+    const newStock =
+      (Number(latestProduct.stock) || 0) - Number(qty);
+
+    if (newStock < 0) {
+      throw new Error("Not enough stock available.");
+    }
+
+    latestProduct.stock = newStock;
+    latestProduct.totalSold = (latestProduct.totalSold || 0) + Number(qty);
 
     await db.put(sale);
-    await db.put(updatedProduct);
+    await db.put(latestProduct);
 
     setProducts((prev) =>
       prev.map((item) =>
@@ -246,6 +256,26 @@ export default function POS() {
 
   return (
     <div className="p-4 pb-8 flex flex-col lg:flex-row gap-6">
+      {/* Mobile Cart Shortcut */}
+      <button
+        type="button"
+        onClick={() => {
+          document
+            .getElementById("pos-cart")
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }}
+        className="lg:hidden fixed bottom-4 right-4 z-50 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-full shadow-lg flex items-center gap-2 text-sm font-bold"
+      >
+        Cart
+        {cart.length > 0 && (
+          <span className="bg-white text-blue-600 min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center text-[11px] font-bold">
+            {cart.reduce(
+              (total, item) => total + (Number(item.qty) || 0),
+              0
+            )}
+          </span>
+        )}
+      </button>
       {/* Column 1: Search & Product Catalog */}
       <div className="flex-1 min-w-0 space-y-4">
         {/* Low Stock Preview Banner */}
@@ -282,7 +312,7 @@ export default function POS() {
         <div className="space-y-3">
           {visibleProducts.length === 0 ? (
             <div className="text-center py-10 bg-white border rounded-xl text-slate-400 text-sm">
-              No products found matching &quot;{search}&quot;
+              No products found or still loading.
             </div>
           ) : (
             visibleProducts.map((product) => (
@@ -299,7 +329,7 @@ export default function POS() {
       </div>
 
       {/* Column 2: Cart & Customer Debts Sidebar */}
-      <div className="w-full lg:w-96 flex flex-col gap-4 flex-shrink-0">
+      <div id="pos-cart" className="w-full lg:w-96 flex flex-col gap-4 flex-shrink-0">
         <Cart
           cart={cart}
           onUpdateQty={handleCartUpdateQty}

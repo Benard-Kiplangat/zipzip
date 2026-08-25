@@ -58,6 +58,32 @@ export default function Sales() {
     calculateSummary(todaySales);
     setSales(todaySales);
 
+    function groupSales(sales) {
+      const ordered = [...sales];
+      const result = [];
+      const bulkMap = {};
+    
+      ordered.forEach((sale) => {
+        if (sale.isBulkSale && sale.bulkSaleId) {
+          if (!bulkMap[sale.bulkSaleId]) {
+            const group = {
+              isBulkGroup: true,
+              bulkSaleId: sale.bulkSaleId,
+              timestamp: sale.timestamp,
+              items: [],
+            };
+            bulkMap[sale.bulkSaleId] = group;
+            result.push(group);
+          }
+          bulkMap[sale.bulkSaleId].items.push(sale);
+        } else {
+          result.push(sale);
+        }
+      });
+    
+      return result;
+    }
+  
     const grouped = {};
     salesDocs.forEach(sale => {
       const dateKey = new Date(sale.timestamp).toLocaleDateString();
@@ -91,14 +117,182 @@ export default function Sales() {
   };
 
   const calculateSummary = (salesList) => {
-    const totalDownPayment = salesList.filter((x) => x.isCreditSale).reduce((sum, s) => sum + (s.dwnPayment || 0), 0);
-    const totalExpectedCreditProfit = salesList.filter((x) => x.isCreditSale).reduce((sum, s) => sum + s.profit, 0);
-    const totalSales = salesList.reduce((sum, s) => sum + s.quantity, 0);
-    const totalCreditSales = salesList.filter((x) => x.isCreditSale).reduce((sum, s) => sum + s.total, 0) - totalDownPayment;
-    const totalRevenue = (salesList.filter((x) => !x.isCreditSale).reduce((sum, s) => sum + s.total, 0)) + totalDownPayment;
-    const totalProfit = (salesList.reduce((sum, s) => sum + s.profit, 0)) - totalExpectedCreditProfit + (salesList.filter((x) => x.isCreditPaid).reduce((sum, s) => sum + s.profit, 0));
-    setSummary({ totalSales, totalDownPayment, totalRevenue, totalExpectedCreditProfit, totalCreditSales, totalProfit });
-  };
+  let totalSales = 0;
+  let totalRevenue = 0;
+  let totalDue = 0;
+  let totalDownPayment = 0;
+  let totalExpectedCreditProfit = 0;
+  let totalProfit = 0;
+
+  // Separate normal sales from bulk-sale items
+  const normalSales = salesList.filter(
+    (sale) => !(sale.isBulkSale && sale.bulkSaleId)
+  );
+
+  const bulkGroups = {};
+
+  salesList
+    .filter((sale) => sale.isBulkSale && sale.bulkSaleId)
+    .forEach((sale) => {
+      if (!bulkGroups[sale.bulkSaleId]) {
+        bulkGroups[sale.bulkSaleId] = [];
+      }
+
+      bulkGroups[sale.bulkSaleId].push(sale);
+    });
+
+  // ---------------------------------------------------------
+  // NORMAL SALES
+  // ---------------------------------------------------------
+  normalSales.forEach((sale) => {
+    const total = Number(sale.total || 0);
+    const quantity = Number(sale.quantity || 0);
+
+    totalSales += quantity;
+
+    if (sale.isCreditSale) {
+      const initialDwn = Number(
+        sale.initialDwnPayment ??
+        sale.dwnPayment ??
+        0
+      );
+
+      const paymentHistory = Array.isArray(sale.paymentHistory)
+        ? sale.paymentHistory
+        : [];
+
+      const historyPaid = paymentHistory.reduce(
+        (sum, payment) => sum + Number(payment.amount || 0),
+        0
+      );
+
+      const paid = initialDwn + historyPaid;
+      const due = Math.max(0, total - paid);
+
+      totalDownPayment += initialDwn;
+      totalRevenue += paid;
+      totalDue += due;
+
+      const profit = Number(
+        sale.profit ||
+        (total - (Number(sale.costPrice || 0) * quantity))
+      );
+
+      totalExpectedCreditProfit += profit;
+
+      // Credit profit is realized only when fully paid
+      if (due <= 0) {
+        totalProfit += profit;
+      }
+    } else {
+      totalRevenue += total;
+
+      totalProfit += Number(
+        sale.profit ||
+        (total - (Number(sale.costPrice || 0) * quantity))
+      );
+    }
+  });
+
+  // ---------------------------------------------------------
+  // BULK SALES
+  // Each bulkSaleId is counted ONCE
+  // ---------------------------------------------------------
+  Object.values(bulkGroups).forEach((items) => {
+    const firstItem = items[0];
+
+    const bulkTotal = items.reduce(
+      (sum, item) => sum + Number(item.total || 0),
+      0
+    );
+
+    const bulkQuantity = items.reduce(
+      (sum, item) => sum + Number(item.quantity || 0),
+      0
+    );
+
+    totalSales += bulkQuantity;
+
+    if (firstItem.isCreditSale) {
+      // Shared ORIGINAL deposit — only read from first item
+      const initialDwn = Number(
+        firstItem.initialBulkDwnPayment ??
+        firstItem.bulkDwnPayment ??
+        firstItem.dwnPayment ??
+        0
+      );
+
+      // Shared payment history — only read from first item
+      const paymentHistory = Array.isArray(firstItem.paymentHistory)
+        ? firstItem.paymentHistory
+        : [];
+
+      const historyPaid = paymentHistory.reduce(
+        (sum, payment) => sum + Number(payment.amount || 0),
+        0
+      );
+
+      const paid = initialDwn + historyPaid;
+      const due = Math.max(0, bulkTotal - paid);
+
+      totalDownPayment += initialDwn;
+      totalRevenue += paid;
+      totalDue += due;
+
+      // Profit from ALL items in the bulk sale
+      const bulkProfit = items.reduce(
+        (sum, item) => {
+          const itemProfit = Number(
+            item.profit ||
+            (
+              Number(item.total || 0) -
+              (Number(item.costPrice || 0) * Number(item.quantity || 0))
+            )
+          );
+
+          return sum + itemProfit;
+        },
+        0
+      );
+
+      totalExpectedCreditProfit += bulkProfit;
+
+      // Only recognize bulk profit once the entire bulk sale is paid
+      if (due <= 0) {
+        totalProfit += bulkProfit;
+      }
+    } else {
+      // Non-credit bulk sale
+      const bulkProfit = items.reduce(
+        (sum, item) => {
+          const itemProfit = Number(
+            item.profit ||
+            (
+              Number(item.total || 0) -
+              (Number(item.costPrice || 0) * Number(item.quantity || 0))
+            )
+          );
+
+          return sum + itemProfit;
+        },
+        0
+      );
+
+      totalRevenue += bulkTotal;
+      totalProfit += bulkProfit;
+    }
+  });
+
+  setSummary({
+    totalSales,
+    totalDownPayment,
+    totalRevenue,
+    totalExpectedCreditProfit,
+    totalCreditSales: totalDue,
+    totalDue,
+    totalProfit,
+  });
+};
 
   const handleDeleteSale = async (sale) => {
     if (window.confirm("Are you sure you want to delete this sale?")) {
@@ -135,15 +329,25 @@ export default function Sales() {
     if (!editingSale.name) { alert('Product name is required'); return; }
 
     const now = new Date().toISOString();
-    const existingHistory = Array.isArray(editingSale.paymentHistory) ? editingSale.paymentHistory : [];
-    const historyPaid = existingHistory.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-    const rawDwn = Number(editingSale.dwnPayment || 0);
-    const initialDwn = editingSale.initialDwnPayment !== undefined
-      ? Number(editingSale.initialDwnPayment)
-      : Math.max(0, rawDwn - historyPaid);
-    const alreadyPaid = initialDwn + historyPaid;
-    const total = Number(editingSale.total) || 0;
-    const finalBalance = Math.max(0, total - alreadyPaid);
+    const existingHistory = Array.isArray(editingSale.paymentHistory)
+  ? editingSale.paymentHistory
+  : [];
+
+const historyPaid = existingHistory.reduce(
+  (sum, p) => sum + Number(p.amount || 0),
+  0
+);
+
+// dwnPayment is the ORIGINAL deposit
+const initialDwn = Number(
+  editingSale.initialDwnPayment ??
+  editingSale.dwnPayment ??
+  0
+);
+
+const alreadyPaid = initialDwn + historyPaid;
+const total = Number(editingSale.total) || 0;
+const finalBalance = Math.max(0, total - alreadyPaid);
 
     // When marking as paid via edit, record the remaining balance as a final payment entry
     const newHistory = (editingSale.isCreditPaid && finalBalance > 0)
@@ -175,11 +379,77 @@ export default function Sales() {
 
   const handleCancelEdit = () => setEditingSale(null);
 
+    const getPaymentInfo = (sale) => {
+    let total = 0;
+    let initialDwn = 0;
+    let paymentHistory = [];
+  
+    if (sale.isBulkGroup) {
+      const first = sale.items?.[0];
+  
+      total = (sale.items || []).reduce(
+        (sum, item) => sum + Number(item.total || 0),
+        0
+      );
+  
+      // dwnPayment is the ORIGINAL deposit
+      initialDwn = Number(
+        first?.bulkDwnPayment ??
+        first?.dwnPayment ??
+        0
+      );
+  
+      paymentHistory = Array.isArray(first?.paymentHistory)
+        ? first.paymentHistory
+        : [];
+    } else {
+      total = Number(sale.total || 0);
+  
+      // dwnPayment is the ORIGINAL deposit
+      initialDwn = Number(
+        sale.dwnPayment ??
+        0
+      );
+  
+      paymentHistory = Array.isArray(sale.paymentHistory)
+        ? sale.paymentHistory
+        : [];
+    }
+  
+    // All payments AFTER the original deposit
+    const historyPaid = paymentHistory.reduce(
+      (sum, payment) => sum + Number(payment.amount || 0),
+      0
+    );
+  
+    // Original deposit + additional payments
+    const paid = initialDwn + historyPaid;
+  
+    // Amount still owed
+    const balance = Math.max(0, total - paid);
+  
+    return {
+      total,
+      paid,
+      dwnPayment: initialDwn,
+      historyPaid,
+      balance,
+      paymentHistory,
+    };
+  };
+
   const handleTotalCreditSales = (salesList) => {
     const creditSales = salesList.filter((x) => x.isCreditSale);
-    const total = creditSales.reduce((sum, s) => sum + (s.total || 0), 0);
-    const down = creditSales.reduce((sum, s) => sum + (s.dwnPayment || 0), 0);
-    return total - down;
+    const balance = creditSales.reduce(
+  (sum, item) => {
+    const { balance } = getPaymentInfo(item);
+    return balance + sum
+  },
+  0
+);
+
+const due = Math.max(0, balance);
+    return due;
   };
 
   const handleLoadSales = async () => {
@@ -312,7 +582,7 @@ export default function Sales() {
 
               <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Due</p>
-                <p className="mt-0.5 truncate text-lg font-bold text-amber-600">KES {formatWhole(summary.totalCreditSales).toLocaleString()}.00</p>
+                <p className="mt-0.5 truncate text-lg font-bold text-amber-600">KES {formatWhole(summary.totalDue).toLocaleString()}.00</p>
               </div>
 
               {canViewProfit && (
@@ -386,6 +656,7 @@ export default function Sales() {
             handleDeleteSaleWithStockRestore={handleDeleteSaleWithStockRestore}
             handleMarkBulkPaid={handleMarkBulkPaid}
             handleLoadSales={handleLoadSales}
+            getPaymentInfo={getPaymentInfo}
           />
 
           <EditSaleModal

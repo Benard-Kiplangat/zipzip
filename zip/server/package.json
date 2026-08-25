@@ -1,5 +1,5 @@
 {
-  "name": "mogogosiek-pos-sync-server",
+  "name": "imara-pos-sync-server",
   "version": "1.0.0",
   "description": "Multi-device PouchDB sync server without CouchDB",
   "main": "index.js",

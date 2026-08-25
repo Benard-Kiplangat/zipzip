@@ -30,17 +30,26 @@ export default function CustomerDebtsCard({ customerCredits = [], grandCreditTot
             <div className="space-y-1">
               {customer.entries.map((e, i) => (
                 <div key={i} className="text-slate-600 flex justify-between">
-                  <span>{e.label}</span>
-                  <span className="font-medium">KES {e.owed.toLocaleString()}</span>
+                  <span>{e.detail }</span>
+                  <span className="font-medium">KES {e.total.toLocaleString()}</span>
                 </div>
               ))}
             </div>
 
             <hr className="border-amber-100" />
-            <div className="flex justify-between items-center pt-1 text-rose-600 font-bold">
+            <div className="flex justify-between items-center text-rose-600 font-bold">
+              <span>Total:</span>
+              <span>KES {customer.total.toLocaleString()}</span>
+            </div>
+           <div className="flex justify-between items-center text-green-600 font-bold">
+              <span>Total Paid:</span>
+              <span>KES {customer.totalPaid.toLocaleString()}</span>
+            </div> 
+            <div className="flex justify-between items-center text-blue-600 font-bold">
               <span>Total Owed:</span>
               <span>KES {customer.totalOwed.toLocaleString()}</span>
             </div>
+            
           </div>
         ))}
       </div>

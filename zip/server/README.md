@@ -1,4 +1,4 @@
-# Mogogosiek POS — Multi-Device Online Sync Server (Without CouchDB)
+# Imara Autospares POS — Multi-Device Online Sync Server (Without CouchDB)
 
 This is a lightweight Node.js Express sync server powered by `express-pouchdb`. It allows all POS devices (desktops, laptops, phones, tablets) to sync sales, stock, and customer data in real-time over the internet or local Wi-Fi without needing a CouchDB database server.
 
@@ -16,8 +16,8 @@ This is a lightweight Node.js Express sync server powered by `express-pouchdb`. 
    - **Build Command**: `npm install`
    - **Start Command**: `npm start`
 5. Click **Create Web Service**.
-6. Once deployed, copy your URL (e.g. `https://mogogosiek-pos-sync.onrender.com`).
-7. In your POS app, open **📡 Online Sync**, enter `https://mogogosiek-pos-sync.onrender.com/db/posdb`, and enable live sync!
+6. Once deployed, copy your URL (e.g. `https://imara-pos-sync.onrender.com`).
+7. In your POS app, open **📡 Online Sync**, enter `https://imara-pos-sync.onrender.com/db/posdb`, and enable live sync!
 
 ---
 

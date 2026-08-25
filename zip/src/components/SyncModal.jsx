@@ -122,7 +122,7 @@ export default function SyncModal({ isOpen, onClose }) {
             <input
               type="url"
               className="w-full border border-slate-200 rounded-xl p-2.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g. https://mogogosiek-pos-sync.onrender.com/db"
+              placeholder="e.g. https://imara-pos-sync.onrender.com/db"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
             />

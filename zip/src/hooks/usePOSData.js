@@ -164,15 +164,23 @@ export function usePOSData() {
   );
 
   const filteredProducts = useMemo(() => {
-    const query = deferredSearch.trim().toLowerCase();
-    if (!query) return products;
-    return products.filter((product) => (product.name || "").toLowerCase().includes(query));
-  }, [products, deferredSearch]);
+  const query = deferredSearch.trim().toLowerCase();
 
-  const visibleProducts = useMemo(
-    () => filteredProducts.slice(0, 120),
-    [filteredProducts]
+  const filtered = query
+    ? products.filter((product) =>
+        (product.name || "").toLowerCase().includes(query)
+      )
+    : products;
+
+  return [...filtered].sort(
+    (a, b) => (Number(b.totalSold) || 0) - (Number(a.totalSold) || 0)
   );
+}, [products, deferredSearch]);
+
+const visibleProducts = useMemo(
+  () => filteredProducts.slice(0, 25),
+  [filteredProducts]
+);
 
   const lowStockProducts = useMemo(() => {
     return products.filter(
@@ -180,36 +188,128 @@ export function usePOSData() {
     );
   }, [products]);
 
-  const customerCredits = useMemo(() => {
-    const customerCreditMap = {};
-    outstandingCredits.forEach((entry) => {
-      const name = entry.customerName || "Unknown";
-      const date = entry.timestamp;
-      if (!customerCreditMap[name])
-        customerCreditMap[name] = { name, date, entries: [], totalOwed: 0 };
+const customerCredits = useMemo(() => {
+  const customerCreditMap = {};
 
-      if (entry.isBulkGroup) {
-        const bulkTotal = entry.items.reduce((s, i) => s + (i.total || 0), 0);
-        const owed = bulkTotal - (entry.dwnPayment || 0);
-        customerCreditMap[name].entries.push({
-          owed,
-          label: `Bulk (${entry.items.length} items)`,
-          detail: entry.items.map((i) => `${i.quantity}×${i.name}`).join(", "),
-        });
-        customerCreditMap[name].totalOwed += owed;
-      } else {
-        const owed = (entry.total || 0) - (entry.dwnPayment || 0);
-        customerCreditMap[name].entries.push({
-          owed,
-          label: `${entry.quantity} × ${entry.name}`,
-          detail: null,
-        });
-        customerCreditMap[name].totalOwed += owed;
-      }
+  outstandingCredits.forEach((entry) => {
+    const name = entry.customerName?.trim() || "Unknown";
+    const date =
+      entry.timestamp ||
+      entry.createdAt ||
+      entry.updatedAt ||
+      entry.createdAt ||
+      null;
+
+    if (!customerCreditMap[name]) {
+      customerCreditMap[name] = {
+        name,
+        date,
+        entries: [],
+        total: 0,       // Total value of credit sales
+        totalPaid: 0,   // Down payments + payment history
+        totalOwed: 0,   // Total - totalPaid
+      };
+    }
+
+    // --------------------------------------------------
+    // 1. Calculate the total value of this sale
+    // --------------------------------------------------
+    let saleTotal = 0;
+
+    if (entry.isBulkGroup) {
+      saleTotal = (entry.items || []).reduce((sum, item) => {
+        const itemTotal =
+          Number(item.total) ||
+          (Number(item.price) || 0) * (Number(item.quantity) || 0);
+
+        return sum + itemTotal;
+      }, 0);
+    } else {
+      saleTotal =
+        Number(entry.total) ||
+        (Number(entry.price) || 0) * (Number(entry.quantity) || 0);
+    }
+
+    // --------------------------------------------------
+    // 2. Calculate down payment
+    // --------------------------------------------------
+    const downPayment = Number(entry.dwnPayment) || 0;
+
+    // --------------------------------------------------
+    // 3. Calculate payment history
+    // --------------------------------------------------
+    const paymentHistory = Array.isArray(entry.paymentHistory)
+      ? entry.paymentHistory
+      : [];
+
+    const historyPaid = paymentHistory.reduce((sum, payment) => {
+      // Supports:
+      // { amount: 500 }
+      // { paid: 500 }
+      // { payment: 500 }
+      const amount =
+        Number(payment.amount) ||
+        Number(payment.paid) ||
+        Number(payment.payment) ||
+        0;
+
+      return sum + amount;
+    }, 0);
+
+    // --------------------------------------------------
+    // 4. Total paid for this sale
+    // --------------------------------------------------
+    const saleTotalPaid = downPayment + historyPaid;
+
+    // Don't allow payments to make the sale negative.
+    const saleOwed = Math.max(0, saleTotal - saleTotalPaid);
+
+    // --------------------------------------------------
+    // 5. Add sale to customer's totals
+    // --------------------------------------------------
+    customerCreditMap[name].total += saleTotal;
+    customerCreditMap[name].totalPaid += saleTotalPaid;
+    customerCreditMap[name].totalOwed += saleOwed;
+
+    // --------------------------------------------------
+    // 6. Keep the individual sale for display
+    // --------------------------------------------------
+    customerCreditMap[name].entries.push({
+      owed: saleOwed,
+      total: saleTotal,
+      totalPaid: saleTotalPaid,
+      downPayment,
+      historyPaid,
+      date,
+
+      detail: entry.isBulkGroup
+        ? `${entry.items?.length || 0} Bulk items (${(entry.items || [])
+            .map(
+              (item) =>
+                `${Number(item.quantity) || 0} ${item.name || "Unknown item"}`
+            )
+            .join(", ")})`
+        : `${Number(entry.quantity) || 0} ${entry.name || "Unknown item"}`,
     });
+  });
 
-    return Object.values(customerCreditMap).sort((a, b) => b.totalOwed - a.totalOwed);
-  }, [outstandingCredits]);
+  // --------------------------------------------------
+  // 7. Calculate final customer balances
+  // --------------------------------------------------
+  return Object.values(customerCreditMap)
+    .map((customer) => ({
+      ...customer,
+
+      // Make absolutely sure the final balance is:
+      // total sales - all payments
+      totalOwed: Math.max(
+        0,
+        customer.total - customer.totalPaid
+      ),
+    }))
+    .filter((customer) => customer.totalOwed > 0)
+    .sort((a, b) => b.totalOwed - a.totalOwed);
+}, [outstandingCredits]);
 
   const grandCreditTotal = useMemo(
     () => customerCredits.reduce((s, c) => s + c.totalOwed, 0),

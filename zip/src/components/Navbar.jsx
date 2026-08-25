@@ -78,7 +78,7 @@ const config = async () => await getConfig();
       <div className="lg:hidden bg-slate-900 text-white flex items-center justify-between p-4 sticky top-0 z-40 shadow-md">
         <div className="flex items-center gap-2 font-bold text-lg">
           <span className="p-1.5 bg-blue-700 rounded-lg text-white">🛠️</span>
-          <span>Mogogosiek AutoSpares</span>
+          <span>Imara AutoSpares</span>
         </div>
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
@@ -119,8 +119,8 @@ const config = async () => await getConfig();
                 <span className="text-xl">🛠️</span>
               </div>
               <div>
-                <div className="font-bold text-base tracking-wide text-white leading-tight">Mogogosiek AutoSpares</div>
-                <div className="text-xs text-blue-400 font-medium">Point of Sale System</div>
+                <div className="font-bold text-base tracking-wide text-white leading-tight">Imara AutoSpares</div>
+                <div className="text-xs text-blue-400 font-medium">PoS System</div>
               </div>
             </Link>
           </div>

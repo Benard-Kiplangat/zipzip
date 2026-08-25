@@ -29,7 +29,7 @@ app.use(
 app.get("/", (req, res) => {
   res.json({
     status: "online",
-    server: "Mogogosiek Auto Spares Multi-Device Sync Server",
+    server: "Imara Auto Spares Multi-Device Sync Server",
     timestamp: new Date().toISOString(),
     syncEndpoint: "/db/posdb",
   });
