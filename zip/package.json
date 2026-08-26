@@ -1,6 +1,6 @@
 {
   "name": "Imara-AutoSpares-POS",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "author": "Benard Kiplangat",
   "description": "POS application for an Autospares Shop",
   "main": "electron/main.js",
@@ -42,7 +42,7 @@
     "wait-on": "^8.0.0"
   },
   "build": {
-  "appId": "com.ben.imaraautospares",
+  "appId": "com.ben.Imaraautospares",
   "productName": "Imara AutoSpares POS",
 
   "files": [

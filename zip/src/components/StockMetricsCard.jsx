@@ -7,7 +7,7 @@ export default function StockMetricsCard({
   expectedProfit = 0,
 }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div className="grid grid-cols-3 gap-4">
       <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-1">
         <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
           Total Inventory Cost

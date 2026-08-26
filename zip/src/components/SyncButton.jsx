@@ -51,6 +51,17 @@ export default function SyncButton() {
   const formatProgress = (value) =>
     Math.max(0, Math.min(100, Math.round(value)));
 
+  //FILE EXPOT
+  const handleBackupFile = async () => {
+    try {
+      handleBackup();
+    }
+    catch (err) {
+      console.error("Backup failed:", err);
+      alert(`Backup failed: ${err.message}`);
+    }
+  };
+
   // EXPORT / RESTORE ELECTRON DB
   const handleBackupDB = async () => {
     try {
@@ -98,6 +109,15 @@ export default function SyncButton() {
     a.download = `zippos-export-${new Date().toISOString()}.json`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleRestoreFile = async () => {
+    try {
+      fileInputRef.current?.click();
+    } catch (err) {
+      console.error("Restore failed:", err);
+      alert(`Restore failed: ${err.message}`);
+    }
   };
 
   const handleRestoreDB = async () => {
@@ -195,24 +215,37 @@ export default function SyncButton() {
         }
 
         setImportMessage(`Importing ${docsToImport.length} documents...`);
-        const results = await db.bulkDocs(docsToImport);
+
         let appliedCount = 0;
         let failedCount = 0;
 
-        results.forEach((result, index) => {
-          if (result.error) {
-            failedCount++;
-            console.error("Import failed:", docsToImport[index]._id, result);
-          } else {
-            appliedCount++;
-          }
+        if (docsToImport.length > 0) {
+          for (let index = 0; index < docsToImport.length; index++) {
+            const doc = docsToImport[index];
 
-          if (index % 20 === 0 || index === results.length - 1) {
-            setImportProgress(
-              50 + formatProgress(((index + 1) / results.length) * 50)
-            );
+            try {
+              await db.put(doc);
+              appliedCount++;
+            } catch (err) {
+              failedCount++;
+
+              console.error(
+                "Import failed:",
+                doc._id,
+                err
+              );
+            }
+
+            if (
+              index % 20 === 0 ||
+              index === docsToImport.length - 1
+            ) {
+              setImportProgress(
+                50 + ((index + 1) / docsToImport.length) * 50
+              );
+            }
           }
-        });
+        }
 
         setImportProgress(100);
         setImportMessage(
@@ -256,13 +289,12 @@ export default function SyncButton() {
       <button
         type="button"
         onClick={() => setIsSyncModalOpen(true)}
-        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors border shadow-2xs flex items-center gap-1.5 ${
-          syncStatus.status === "online"
+        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors border shadow-2xs flex items-center gap-1.5 ${syncStatus.status === "online"
             ? "bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100"
             : syncStatus.status === "syncing"
-            ? "bg-blue-50 border-blue-300 text-blue-800 hover:bg-blue-100"
-            : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
-        }`}
+              ? "bg-blue-50 border-blue-300 text-blue-800 hover:bg-blue-100"
+              : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+          }`}
       >
         {getStatusLabel()}
       </button>
@@ -274,12 +306,24 @@ export default function SyncButton() {
       >
         Export DB
       </button>
+      <button
+        onClick={handleBackupFile}
+        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-2xs transition-colors"
+      >
+        Export File
+      </button>
 
       <button
         onClick={handleRestoreDB}
         className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-2xs transition-colors"
       >
         Import DB
+      </button>
+      <button
+        onClick={handleRestoreFile}
+        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-2xs transition-colors"
+      >
+        Import File
       </button>
 
       <input
