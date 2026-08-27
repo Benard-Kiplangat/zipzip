@@ -1,6 +1,7 @@
 import React from "react";
 import SyncButton from "../components/SyncButton";
 import { showToast } from "../utils/toast";
+import { formatWhole } from "../utils/format";
 import { useStockData } from "../hooks/useStockData";
 import StockMetricsCard from "../components/StockMetricsCard";
 import StockFormCard from "../components/StockFormCard";
@@ -23,7 +24,6 @@ export default function Stock() {
     resetForm,
     saveProduct,
     deleteProduct,
-    hardReload,
   } = useStockData();
 
   const handleSaveSubmit = async () => {
@@ -50,9 +50,9 @@ export default function Stock() {
   };
 
   return (
-    <div className="p-4 pb-12 max-w-5xl space-y-6">
+    <div className="p-4 pb-12 max-w-xl space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
             <span>⚙️</span> Inventory Management
@@ -61,16 +61,7 @@ export default function Stock() {
             Track spare parts stock, cost prices, retail selling prices, and re-order thresholds.
           </p>
         </div>
-
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={hardReload}
-            className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-3.5 py-2 rounded-xl transition-colors"
-            title="Reload application state"
-          >
-            ↻ Hard Refresh
-          </button>
           <SyncButton />
         </div>
       </div>
@@ -93,15 +84,15 @@ export default function Stock() {
 
       {/* Inventory Catalog List */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+        <div className="flex flex-col justify-between gap-3">
+          <h2 className="text-base font-bold text-slate-900 flex justify-between items-center gap-2">
             <span>📦 Inventory Catalog</span>
             <span className="bg-slate-100 text-slate-700 text-xs px-2.5 py-0.5 rounded-full font-bold">
-              {products.length} items
+              {products.length.toLocaleString()} items
             </span>
           </h2>
 
-          <div className="w-full sm:w-72">
+          <div className="w-full">
             <input
               type="text"
               placeholder="🔍 Search spare parts..."

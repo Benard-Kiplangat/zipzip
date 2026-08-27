@@ -20,6 +20,7 @@ export default function POS() {
     lowStockProducts,
     customerCredits,
     grandCreditTotal,
+    loadingProducts,
     setOutstandingCredits,
     bumpPopular,
   } = usePOSData();
@@ -310,7 +311,10 @@ export default function POS() {
 
         {/* Product Cards List */}
         <div className="space-y-3">
-          {visibleProducts.length === 0 ? (
+          {loadingProducts && (<div className="text-center py-10 bg-white border rounded-xl text-slate-400 text-sm">
+              Products loading...
+            </div>
+            ) || (visibleProducts.length === 0 ? (
             <div className="text-center py-10 bg-white border rounded-xl text-slate-400 text-sm">
               No products found or still loading.
             </div>
@@ -324,7 +328,7 @@ export default function POS() {
                 onAddToCart={handleAddToCart}
               />
             ))
-          )}
+          ))}
         </div>
       </div>
 

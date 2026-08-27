@@ -2,8 +2,8 @@ import React, { useRef, useState, useEffect } from "react";
 import { db } from "../db";
 import SyncModal from "./SyncModal";
 import { subscribeSyncStatus } from "../utils/syncService";
+import { useStockData } from '../hooks/useStockData'
 
-// --------------------------------------------------
 // Helpers
 // --------------------------------------------------
 
@@ -42,6 +42,7 @@ export default function SyncButton() {
   const [importMessage, setImportMessage] = useState("");
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState({ status: "idle" });
+  const { hardReload } = useStockData();
 
   useEffect(() => {
     const unsubscribe = subscribeSyncStatus(setSyncStatus);
@@ -285,15 +286,25 @@ export default function SyncButton() {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {/* hard reload */}
+      <button
+        type="button"
+        onClick={hardReload}
+        className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-3.5 py-2 rounded-xl transition-colors"
+        title="Reload application state"
+      >
+        ↻ Refresh
+      </button>
+
       {/* Online Sync Button */}
       <button
         type="button"
         onClick={() => setIsSyncModalOpen(true)}
         className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors border shadow-2xs flex items-center gap-1.5 ${syncStatus.status === "online"
-            ? "bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100"
-            : syncStatus.status === "syncing"
-              ? "bg-blue-50 border-blue-300 text-blue-800 hover:bg-blue-100"
-              : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+          ? "bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100"
+          : syncStatus.status === "syncing"
+            ? "bg-blue-50 border-blue-300 text-blue-800 hover:bg-blue-100"
+            : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
           }`}
       >
         {getStatusLabel()}

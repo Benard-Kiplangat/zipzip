@@ -4,7 +4,7 @@ import { formatWhole } from "../utils/format";
 export default function SalesMetricsCard({ summary, canViewProfit }) {
   return (
     <div className="mb-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 sm:grid-cols-1 sm:items-center gap-3">
         <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
           <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
             Revenue

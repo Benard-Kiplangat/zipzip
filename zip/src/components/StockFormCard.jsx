@@ -13,7 +13,7 @@ export default function StockFormCard({
         <span>{form.id ? "✏️ Edit Spare Part Product" : "➕ Register Spare Part Product"}</span>
       </h2>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div className="sm:col-span-2 lg:col-span-2">
           <label className="block text-xs font-bold text-slate-700 mb-1">
             Part / Product Name <span className="text-rose-500">*</span>

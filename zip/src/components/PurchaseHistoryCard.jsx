@@ -19,17 +19,17 @@ export default function PurchaseHistoryCard({
         <div className="grid grid-cols-3 gap-2 text-xs">
           <div className="bg-slate-50 border border-slate-100 p-2.5 rounded-xl space-y-0.5">
             <div className="text-slate-500 font-medium">Today</div>
-            <div className="font-bold text-slate-900">KES {formatWhole(metrics.todayTotal)}</div>
+            <div className="font-bold text-slate-900">Ksh. {formatWhole(metrics.todayTotal).toLocaleString()}</div>
             <div className="text-[10px] text-slate-400">{metrics.todayCount} items</div>
           </div>
           <div className="bg-slate-50 border border-slate-100 p-2.5 rounded-xl space-y-0.5">
             <div className="text-slate-500 font-medium">This Week</div>
-            <div className="font-bold text-slate-900">KES {formatWhole(metrics.weekTotal)}</div>
+            <div className="font-bold text-slate-900">Ksh. {formatWhole(metrics.weekTotal).toLocaleString()}</div>
             <div className="text-[10px] text-slate-400">{metrics.weekCount} items</div>
           </div>
           <div className="bg-slate-50 border border-slate-100 p-2.5 rounded-xl space-y-0.5">
             <div className="text-slate-500 font-medium">This Month</div>
-            <div className="font-bold text-slate-900">KES {formatWhole(metrics.monthTotal)}</div>
+            <div className="font-bold text-slate-900">Ksh. {formatWhole(metrics.monthTotal).toLocaleString()}</div>
             <div className="text-[10px] text-slate-400">{metrics.monthCount} items</div>
           </div>
         </div>
@@ -77,12 +77,12 @@ export default function PurchaseHistoryCard({
                 <div className="font-bold text-slate-900 flex justify-between items-center">
                   <span>{purchase.name}</span>
                   <span className="text-emerald-600 font-bold">
-                    KES {formatWhole(purchase.totalCost || 0)}
+                    Ksh. {formatWhole(purchase.totalCost || 0).toLocaleString()}
                   </span>
                 </div>
                 <div className="text-slate-500 flex justify-between">
                   <span>
-                    {purchase.quantity} units @ KES {formatWhole(purchase.costPrice || 0)}
+                    {purchase.quantity} units @ Ksh. {formatWhole(purchase.costPrice || 0).toLocaleString()}
                   </span>
                   <span className="text-[10px] text-slate-400">
                     {new Date(purchase.date).toLocaleString()}

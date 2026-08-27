@@ -568,25 +568,36 @@ const due = Math.max(0, balance);
               {label}
             </button>
           ))}
+          <button
+                onClick={() => setShowCreditList(prev => !prev)}
+                className={`hidden sm:flex items-center whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-medium transition-all duration-200 ${
+                  showCreditList
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                }`}
+              >
+                <input type="checkbox" name="" className="sm:hidden mr-1" id="" readOnly checked={showCreditList ? true : false}/>
+                Credit Sales
+              </button>
         </div>
       </div>
 
       {viewMode === "todaySales" && (
         <div>
           <div className="mb-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+            <div className="grid grid-cols-3 sm:flex sm:justify-between overflow-auto gap-2">
+              <div className="rounded-xl min-w-[135px] border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Revenue</p>
                 <p className="mt-0.5 truncate text-lg font-bold text-slate-900">KES {formatWhole(summary.totalRevenue).toLocaleString()}.00</p>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+              <div className="rounded-xl min-w-[135px] border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Due</p>
                 <p className="mt-0.5 truncate text-lg font-bold text-amber-600">KES {formatWhole(summary.totalDue).toLocaleString()}.00</p>
               </div>
 
               {canViewProfit && (
-                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+                <div className="rounded-xl border min-w-[135px] border-slate-200 bg-white px-3 py-2.5 shadow-sm">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Profit</p>
                   <p className="mt-0.5 truncate text-lg font-bold text-emerald-600">KES {formatWhole(summary.totalProfit).toLocaleString()}.00</p>
                 </div>
@@ -594,10 +605,10 @@ const due = Math.max(0, balance);
             </div>
           </div>
           <div className="rounded-2xl mb-2 border border-slate-200 bg-white p-2 shadow-sm">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between sm:justify-center">
               <button
                 onClick={() => setShowCreditList(prev => !prev)}
-                className={`inline-flex items-center rounded border ml-4 px-4 py-1.5 text-sm font-semibold transition ${
+                className={`sm:hidden inline-flex items-center rounded border ml-4 px-4 py-1.5 text-sm font-semibold transition ${
                   showCreditList
                     ? "border-orange-300 bg-orange-50 text-orange-800"
                     : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"

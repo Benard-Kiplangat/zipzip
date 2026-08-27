@@ -59,6 +59,17 @@ export default function Purchase() {
           {/* Bulk Stock Import Form */}
           <BulkStockInputCard onBulkImport={handleBulkImport} />
 
+           <div className="w-full lg:hidden">
+          <PurchaseHistoryCard
+            metrics={metrics}
+            filteredPurchases={filteredPurchases}
+            dateFrom={dateFrom}
+            setDateFrom={setDateFrom}
+            dateTo={dateTo}
+            setDateTo={setDateTo}
+          />
+          </div>
+
           {/* Product Search */}
           <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
             <label className="block font-bold text-slate-900 text-sm">
@@ -93,7 +104,7 @@ export default function Purchase() {
         </div>
 
         {/* Right Column (1/3 width) */}
-        <div className="w-full">
+        <div className="w-full hidden lg:block">
           <PurchaseHistoryCard
             metrics={metrics}
             filteredPurchases={filteredPurchases}

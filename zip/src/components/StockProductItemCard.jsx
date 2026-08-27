@@ -13,7 +13,7 @@ export default function StockProductItemCard({ product, onEdit, onDelete }) {
   const isOutOfStock = stock <= 0;
 
   return (
-    <div className="border border-slate-200 rounded-xl p-3.5 bg-white shadow-2xs hover:border-slate-300 transition-colors flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+    <div className="border border-slate-200 rounded-xl p-3.5 bg-white shadow-2xs hover:border-slate-300 transition-colors flex sm:flex-col flex-row items-start justify-between gap-3">
       <div className="space-y-1">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-bold text-slate-900 text-sm leading-snug">
@@ -46,7 +46,7 @@ export default function StockProductItemCard({ product, onEdit, onDelete }) {
           </span>
           <span>•</span>
           <span className="text-emerald-600 font-bold">
-            Margin: KES {formatWhole(margin)}
+            Profit: KES {formatWhole(margin)}
           </span>
           {product.lowStockThreshold != null && (
             <span className="text-amber-700 text-[11px] bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
@@ -56,7 +56,7 @@ export default function StockProductItemCard({ product, onEdit, onDelete }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 self-end sm:self-auto">
+      <div className="flex items-center gap-2 self-end">
         {!showConfirm ? (
           <>
             <button

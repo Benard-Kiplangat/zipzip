@@ -58,8 +58,8 @@ function BulkSaleGroup({
   return (
     <div className={`rounded ${borderClass} px-3 py-2`}>
       {/* Compact header row — always visible */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 min-w-0 flex-1 flex-wrap">
+      <div className="flex items-center justify-between gap-2 oveflow-x-auto">
+        <div className="flex items-center gap-1.5 flex-1 flex-wrap">
           <span className={`${badgeBg} text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0`}>
             {isCreditSale ? "BULK CREDIT" : "BULK SALE"}
           </span>
@@ -105,7 +105,7 @@ function BulkSaleGroup({
 
       {/* Expandable detail panel */}
       {expanded && (
-        <div className="mt-2 pt-2 border-t border-gray-200 space-y-1">
+        <div className="mt-2 pt-2 border-t border-gray-200 space-y-1 min-w-[350px]">
           {group.items.map((sale, idx) => (
             <div
               key={idx}
@@ -626,8 +626,8 @@ export default function SaleList({
 
         const sale = entry;
         return (
-          <div key={index} className="border p-3 rounded">
-            <div className="flex justify-between items-center">
+          <div key={index} className="border p-3 rounded overflow-x-auto">
+            <div className="flex justify-between items-center min-w-[350px] ">
               <div className="flex flex-col justify-between">
                 <div className="font-semibold">
                   <input

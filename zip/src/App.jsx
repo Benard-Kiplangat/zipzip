@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { getConfig } from "./utils/config";
 import POS from './pages/POS';
 import Stock from './pages/Stock';
 import Sales from './pages/Sales';
@@ -39,26 +38,14 @@ function AdminRoute({ children }) {
 export default function App() {
   const { currentUser } = useAuth();
 
-  useEffect(() => {
-    getConfig()
-      .then(config => {
-        if (config.businessName) {
-          document.title = config.businessName;
-        }
-      })
-      .catch(error => {
-        console.error("Failed to load app config:", error);
-      });
-  }, []);
-
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 flex flex-col lg:flex-row">
       {currentUser && <Navbar />}
-      <main className="flex-1 min-w-0 p-4 lg:p-8 max-w-7xl mx-auto w-full">
+      <main className="flex-1 min-w-0 sm:p-1 p-4 lg:p-8 max-w-7xl mx-auto w-full">
         <Routes>
           <Route path="/login" element={<UserLogin />} />
           <Route path="/" element={<RequireAuth><POS /></RequireAuth>} />
-          <Route path="/stock" element={<StockRoute><Stock /></StockRoute>} />
+          <Route path="/stock" element={<RequireAuth><StockRoute><Stock /></StockRoute></RequireAuth>} />
           <Route path="/purchase" element={<RequireAuth><Purchase /></RequireAuth>} />
           <Route path="/customers" element={<RequireAuth><Customers /></RequireAuth>} />
           <Route path="/sales" element={<RequireAuth><Sales /></RequireAuth>} />

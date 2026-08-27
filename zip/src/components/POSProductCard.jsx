@@ -64,7 +64,7 @@ export default function POSProductCard({
 
       {/* Inputs & Action Buttons */}
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center sm:justify-end gap-2 flex-wrap">
           {/* Selling Price */}
           <div className="flex flex-col">
             <span className="text-[10px] uppercase font-bold text-slate-400">Price (KES)</span>
@@ -91,19 +91,21 @@ export default function POSProductCard({
           </div>
 
           {/* Credit Sale Checkbox */}
-          <label className="flex items-center gap-1.5 cursor-pointer pt-3 text-xs font-medium text-slate-700">
-            <input
+         <div className="flex sm:flex-col cursor-pointer gap-1 pt-3"> 
+          <input
               type="checkbox"
               checked={isCreditSale}
               onChange={(e) => setIsCreditSale(e.target.checked)}
               className="rounded text-blue-600 focus:ring-blue-500"
             />
+           <label className="text-xs font-medium text-slate-700">
             Credit
           </label>
         </div>
+        </div>
 
         {/* Buttons */}
-        <div className="flex items-center gap-2 pt-3">
+        <div className="flex items-center sm:justify-end gap-2 pt-3">
           <button
             onClick={handleSellClick}
             disabled={isOutOfStock}
