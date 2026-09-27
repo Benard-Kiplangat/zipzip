@@ -2,6 +2,49 @@ import React, { useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
 import { formatWhole } from "../utils/format";
 
+function computeCreditDue(salesForPeriod) {
+  let due = 0;
+  const bulkGroups = {};
+  const normalSales = [];
+
+  salesForPeriod.forEach(sale => {
+    if (sale.isCreditSale && sale.isBulkSale && sale.bulkSaleId) {
+      if (!bulkGroups[sale.bulkSaleId]) bulkGroups[sale.bulkSaleId] = [];
+      bulkGroups[sale.bulkSaleId].push(sale);
+    } else if (sale.isCreditSale) {
+      normalSales.push(sale);
+    }
+  });
+
+  Object.values(bulkGroups).forEach(items => {
+    const first = items[0];
+    const bulkTotal = items.reduce((s, i) => s + Number(i.total || 0), 0);
+    const initialDwn = Number(
+      first.initialBulkDwnPayment ??
+      first.bulkDwnPayment ??
+      first.dwnPayment ??
+      0
+    );
+    const paymentHistory = Array.isArray(first.paymentHistory) ? first.paymentHistory : [];
+    const historyPaid = paymentHistory.reduce((s, p) => s + Number(p.amount || 0), 0);
+    due += Math.max(0, bulkTotal - initialDwn - historyPaid);
+  });
+
+  normalSales.forEach(sale => {
+    const total = Number(sale.total || 0);
+    const initialDwn = Number(
+      sale.initialDwnPayment ??
+      sale.dwnPayment ??
+      0
+    );
+    const paymentHistory = Array.isArray(sale.paymentHistory) ? sale.paymentHistory : [];
+    const historyPaid = paymentHistory.reduce((s, p) => s + Number(p.amount || 0), 0);
+    due += Math.max(0, total - initialDwn - historyPaid);
+  });
+
+  return due;
+}
+
 export default function MonthlySummary({ allSales = [], selectedDate }) {
   const { canViewProfit } = useAuth();
   const refDate = selectedDate ? new Date(selectedDate) : new Date();
@@ -23,9 +66,7 @@ export default function MonthlySummary({ allSales = [], selectedDate }) {
       const salesForMonth = salesByMonth[key] || [];
       const totalRevenue = salesForMonth.reduce((sum, s) => sum + (s.total || 0), 0);
       const totalProfit = salesForMonth.reduce((sum, s) => sum + (s.profit || 0), 0);
-      const creditGross = salesForMonth.filter(s => s.isCreditSale).reduce((sum, s) => sum + (s.total || 0), 0);
-      const creditDown = salesForMonth.filter(s => s.isCreditSale).reduce((sum, s) => sum + (s.dwnPayment || 0), 0);
-      const creditDue = creditGross - creditDown;
+      const creditDue = computeCreditDue(salesForMonth);
       const keyLabel = d.toLocaleString(undefined, { month: 'short', year: 'numeric' });
       return { label: keyLabel, totalRevenue, totalProfit, creditDue };
     });

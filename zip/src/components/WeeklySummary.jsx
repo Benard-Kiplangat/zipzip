@@ -11,6 +11,49 @@ function getMondayOfWeek(dateStr) {
   return d;
 }
 
+function computeCreditDue(salesForPeriod) {
+  let due = 0;
+  const bulkGroups = {};
+  const normalSales = [];
+
+  salesForPeriod.forEach(sale => {
+    if (sale.isCreditSale && sale.isBulkSale && sale.bulkSaleId) {
+      if (!bulkGroups[sale.bulkSaleId]) bulkGroups[sale.bulkSaleId] = [];
+      bulkGroups[sale.bulkSaleId].push(sale);
+    } else if (sale.isCreditSale) {
+      normalSales.push(sale);
+    }
+  });
+
+  Object.values(bulkGroups).forEach(items => {
+    const first = items[0];
+    const bulkTotal = items.reduce((s, i) => s + Number(i.total || 0), 0);
+    const initialDwn = Number(
+      first.initialBulkDwnPayment ??
+      first.bulkDwnPayment ??
+      first.dwnPayment ??
+      0
+    );
+    const paymentHistory = Array.isArray(first.paymentHistory) ? first.paymentHistory : [];
+    const historyPaid = paymentHistory.reduce((s, p) => s + Number(p.amount || 0), 0);
+    due += Math.max(0, bulkTotal - initialDwn - historyPaid);
+  });
+
+  normalSales.forEach(sale => {
+    const total = Number(sale.total || 0);
+    const initialDwn = Number(
+      sale.initialDwnPayment ??
+      sale.dwnPayment ??
+      0
+    );
+    const paymentHistory = Array.isArray(sale.paymentHistory) ? sale.paymentHistory : [];
+    const historyPaid = paymentHistory.reduce((s, p) => s + Number(p.amount || 0), 0);
+    due += Math.max(0, total - initialDwn - historyPaid);
+  });
+
+  return due;
+}
+
 export default function WeeklySummary({ allSales = [], selectedDate }) {
   const { canViewProfit } = useAuth();
   const monday = getMondayOfWeek(selectedDate);
@@ -25,7 +68,6 @@ export default function WeeklySummary({ allSales = [], selectedDate }) {
 
   const { rows, totals } = useMemo(() => {
     const salesByDate = {};
-
     allSales.forEach(sale => {
       const key = new Date(sale.timestamp).toLocaleDateString();
       if (!salesByDate[key]) salesByDate[key] = [];
@@ -38,9 +80,7 @@ export default function WeeklySummary({ allSales = [], selectedDate }) {
       const totalSales = salesForDay.reduce((sum, s) => sum + (s.quantity || 0), 0);
       const totalRevenue = salesForDay.reduce((sum, s) => sum + (s.total || 0), 0);
       const totalProfit = salesForDay.reduce((sum, s) => sum + (s.profit || 0), 0);
-      const creditGross = salesForDay.filter(s => s.isCreditSale).reduce((sum, s) => sum + (s.total || 0), 0);
-      const creditDown = salesForDay.filter(s => s.isCreditSale).reduce((sum, s) => sum + (s.dwnPayment || 0), 0);
-      const creditDue = creditGross - creditDown;
+      const creditDue = computeCreditDue(salesForDay);
       const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
       return { date: key, dayName, totalSales, totalRevenue, totalProfit, creditDue };
     });
