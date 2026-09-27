@@ -48,115 +48,120 @@ export default function POSProductCard({
         <div className="font-semibold text-slate-900 leading-snug">
           {product.name}
           <span
-            className={`ml-2 text-xs font-semibold px-2 py-0.5 rounded-full ${
-              isOutOfStock
+            className={`ml-2 text-xs font-semibold px-2 py-0.5 rounded-full ${isOutOfStock
                 ? "bg-rose-100 text-rose-700"
                 : "bg-slate-100 text-slate-600"
-            }`}
+              }`}
           >
             {isOutOfStock ? "Out of Stock" : `${product.stock} remaining`}
           </span>
         </div>
         <p className="text-xs text-slate-500 font-medium whitespace-nowrap">
-          Profit: KES {formatWhole(totalProfit)}
+          Total: Ksh {totalPrice.toLocaleString()} ( profit = {formatWhole(totalProfit)} )
         </p>
       </div>
-
-      {/* Inputs & Action Buttons */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-        <div className="flex items-center sm:justify-end gap-2 flex-wrap">
-          {/* Selling Price */}
-          <div className="flex flex-col">
-            <span className="text-[10px] uppercase font-bold text-slate-400">Price (KES)</span>
+      {/* Selling controls */}
+      <div className="rounded-lg bg-slate-50 border border-slate-100 p-1.5 space-y-1.5 pb-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 items-end">
+          <label className="text-xs text-slate-500 font-semibold">
+            Price (Ksh)
             <input
               type="number"
-              className="w-24 h-8 text-sm border border-slate-300 rounded px-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-              value={sellingPrice}
+              min="0"
+              step="10"
+              placeholder="Price"
+              className="input-field mt-0.5 text-sm py-1.5"
+              value={sellingPrice ?? product.sellingPrice}
               onChange={(e) => setSellingPrice(e.target.value)}
             />
-          </div>
-
-          {/* Quantity */}
-          <div className="flex flex-col">
-            <span className="text-[10px] uppercase font-bold text-slate-400">Qty</span>
+          </label>
+          <label className="text-xs text-slate-500 font-semibold">
+            Quantity
             <input
               type="number"
               min="1"
+              step="1"
               max={Math.max(1, product.stock)}
               disabled={isOutOfStock}
-              className="w-16 h-8 text-sm border border-slate-300 rounded px-2 focus:ring-1 focus:ring-blue-500 focus:outline-none disabled:bg-slate-100 disabled:text-slate-400"
-              value={quantity}
-              onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 1)}
+              value={quantity ?? 1}
+              onChange={(e) => setQuantity(parseInt(e.target.value, 10))}
+              className="input-field mt-0.5 text-sm py-1.5"
             />
-          </div>
-
-          {/* Credit Sale Checkbox */}
-         <div className="flex sm:flex-col cursor-pointer gap-1 pt-3"> 
-          <input
-              type="checkbox"
-              checked={isCreditSale}
-              onChange={(e) => setIsCreditSale(e.target.checked)}
-              className="rounded text-blue-600 focus:ring-blue-500"
-            />
-           <label className="text-xs font-medium text-slate-700">
-            Credit
           </label>
         </div>
-        </div>
-
-        {/* Buttons */}
-        <div className="flex items-center sm:justify-end gap-2 pt-3">
-          <button
-            onClick={handleSellClick}
-            disabled={isOutOfStock}
-            className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-xs font-semibold px-3 h-8 rounded transition-colors whitespace-nowrap"
-          >
-            Sell (KES {formatWhole(totalPrice)})
-          </button>
-          <button
-            onClick={handleAddToCartClick}
-            disabled={isOutOfStock}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white text-xs font-semibold px-3 h-8 rounded transition-colors whitespace-nowrap"
-          >
-            + Cart
-          </button>
-        </div>
+        {/* Customer / credit details only when needed */}
+        {isCreditSale && (
+          <div className="grid grid-cols-3 gap-1.5 pt-1 border-t border-slate-100">
+            <label className="text-xs text-slate-500 font-semibold">
+              Customer
+              <select
+                className="input-field mt-0.5 text-xs py-1"
+                value={customerName ?? ""}
+                onChange={(e) => setCustomerName(e.target.value)}
+              >
+                <option value="">Select customer</option>
+                {customers.map(customer => (
+                  <option key={customer._id} value={customer.name}>
+                    {customer.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs text-slate-500 font-semibold">
+              New Customer
+              <input
+                type="text"
+                placeholder="Enter new customer's name..."
+                className="input-field mt-0.5 text-xs py-1"
+                value={customerName ?? ""}
+                onChange={(e) => setCustomerName(e.target.value)}
+              />
+            </label>
+            <label className="text-xs text-slate-500 font-semibold">
+              Deposit
+              <input
+                type="number"
+                min="0"
+                placeholder="Down Payment"
+                className="input-field mt-0.5 text-xs py-1 px-2"
+                value={downPayment ?? ""}
+                onChange={(e) => setDownPayment(e.target.value)}
+              />
+            </label>
+          </div>
+        )}
       </div>
-
-      {/* Credit Sale Extra Details */}
-      {isCreditSale && (
-        <div className="flex flex-wrap gap-2 items-center mt-2 p-2 bg-amber-50 border border-amber-200 rounded-md">
-          {customers.length > 0 && (
-            <select
-              className="border border-amber-300 p-1 text-xs rounded bg-white flex-1 min-w-[140px]"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-            >
-              <option value="">Select Customer...</option>
-              {customers.map((c) => (
-                <option key={c._id} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          )}
-          <input
-            type="text"
-            className="border border-amber-300 p-1 text-xs rounded bg-white flex-1 min-w-[140px]"
-            placeholder="Or type Customer Name..."
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-          />
-          <input
-            type="number"
-            placeholder="Deposit (KES)"
-            className="border border-amber-300 p-1 text-xs rounded bg-white w-28"
-            value={downPayment}
-            min="0"
-            onChange={(e) => setDownPayment(e.target.value)}
-          />
+      <div className="flex flex-wrap items-center justify-between gap-1.5">
+          <div className="flex items-center gap-1.5">
+            <label className="flex items-center gap-1 text-[11px] text-slate-600 bg-emerald-50 border border-slate-200 px-2 py-1 rounded-md cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isCreditSale ?? false}
+                onChange={(e) => setIsCreditSale(e.target.checked)}
+                className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500"
+              />
+              <span>Credit</span>
+            </label>
+          </div>
+          <div className="text-right">
+            <div className="flex gap-2 items-center justify-end">
+              <button
+                onClick={handleSellClick}
+                disabled={isOutOfStock}
+                className="btn-primary text-xs py-1 px-3"
+              >
+                Quick Sell
+              </button>
+              <button
+                onClick={handleAddToCartClick}
+                disabled={isOutOfStock}
+                className="btn-secondary text-xs py-1 px-3"
+              >
+                + Cart
+              </button>
+            </div>
+          </div>
         </div>
-      )}
     </div>
   );
 }
