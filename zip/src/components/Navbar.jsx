@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useBusinessConfig } from '../config';
 
 export default function Navbar() {
   const { currentUser, isAdmin, canViewStock, logout } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { config } = useBusinessConfig();
 
   const navItems = [
     {
@@ -87,7 +89,7 @@ export default function Navbar() {
       <div className="lg:hidden bg-slate-900 text-white flex items-center justify-between p-4 sticky top-0 z-40 shadow-md">
         <div className="flex items-center gap-2 font-bold text-lg">
           <span className="p-1.5 bg-blue-700 rounded-lg text-white">🛠️</span>
-          <span>Imara AutoSpares</span>
+          <span>{config.businessName}</span>
         </div>
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
@@ -128,7 +130,7 @@ export default function Navbar() {
                 <span className="text-xl">🛠️</span>
               </div>
               <div>
-                <div className="font-bold text-base tracking-wide text-white leading-tight">Imara AutoSpares</div>
+                <div className="font-bold text-base tracking-wide text-white leading-tight">{config.businessName}</div>
                 <div className="text-xs text-blue-400 font-medium">PoS System</div>
               </div>
             </Link>
