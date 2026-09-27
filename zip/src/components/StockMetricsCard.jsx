@@ -7,51 +7,27 @@ export default function StockMetricsCard({
   expectedProfit = 0,
 }) {
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-1 gap-4">
-      <div className="bg-white border xs:flex-col sm:flex sm:gap-3 sm:justify-around sm:flex-wrap border-slate-200 rounded-2xl p-4 shadow-sm space-y-1 sm:p-4">
-        <div className="flex flex-col items-center justify-center gap-2 pt-1 mt-1">
-        <div className="text-xs font-bold text-slate-500 uppercase lg:tracking-wider">
-          Inventory Cost
-        </div>
-        <div className="text-xl font-black text-slate-900">
-          {formatWhole(totalCostValue).toLocaleString()}
-        </div>
-        </div>
-        <div className="hidden sm:flex flex-col items-center justify-center gap-2 pt-1">
-          <div className="text-xs font-bold text-slate-500 uppercase">
-          Retail Value
-        </div>
-        <div className="text-xl font-black text-slate-900">
-          {formatWhole(totalSaleValue).toLocaleString()}
-        </div>
-        </div>
-        <div className="hidden sm:flex flex-col items-center justify-center pt-1">
-          <div className="text-xs font-bold text-slate-500 uppercase">
-          Potential Profit
-        </div>
-        <div className="text-xl font-black text-slate-500">
-          {formatWhole(expectedProfit).toLocaleString()}
-        </div>
-        </div>
-      </div>
-
-      <div className="sm:hidden flex flex-col items-center justify-center bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-1">
-        <div className="text-xs font-bold text-slate-500 uppercase">
-          Retail Value
-        </div>
-        <div className="text-xl font-black text-slate-900">
-          {formatWhole(totalSaleValue).toLocaleString()}
-        </div>
-      </div>
-
-      <div className="sm:hidden flex flex-col items-center justify-center bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-1">
-        <div className="text-xs font-bold text-slate-500 uppercase">
-          Potential Profit
-        </div>
-        <div className="text-xl font-black text-slate-900">
-          {formatWhole(expectedProfit).toLocaleString()}
-        </div>
-      </div>
+    <aside className="space-y-4 w-full">
+          {/* Metrics Summary */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+            <h2 className="text-base font-bold text-slate-900 flex items-center justify-between">
+              <span>Stock Overview</span>
+            </h2>
+            <div className="grid grid-cols-1 gap-2 text-xs">
+              <div className="bg-slate-50 border border-slate-100 p-2.5 rounded-xl space-y-0.5">
+                <div className="text-slate-500 font-medium">Inventory Cost</div>
+                <div className="font-bold text-slate-900">Ksh. {formatWhole(totalCostValue).toLocaleString()}</div>
+              </div>
+              <div className="bg-slate-50 border border-slate-100 p-2.5 rounded-xl space-y-0.5">
+                <div className="text-slate-500 font-medium">Retail Value</div>
+                <div className="font-bold text-slate-900">Ksh. {formatWhole(totalSaleValue).toLocaleString()}</div>
+              </div>
+              <div className="bg-slate-50 border border-slate-100 p-2.5 rounded-xl space-y-0.5">
+                <div className="text-slate-500 font-medium">Potential Profit</div>
+                <div className="font-bold text-slate-900">Ksh. {formatWhole(expectedProfit).toLocaleString()}</div>
+              </div>
+            </div>
     </div>
+    </aside>
   );
 }
