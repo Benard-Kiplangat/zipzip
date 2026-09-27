@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getConfig } from "../utils/config";
 
 export default function Navbar() {
   const { currentUser, isAdmin, canViewStock, logout } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-const config = async () => await getConfig();
 
   const navItems = [
     {
@@ -69,7 +67,18 @@ const config = async () => await getConfig();
         </svg>
       ),
       show: isAdmin,
-    },
+    },   
+    {
+      path: '/settings',
+      label: 'Business Settings',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.05c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.05 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.05 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.05c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.05c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.05-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.05-2.573c-.94-1.543.826-3.31 2.37-2.37.996.61 2.291.13 2.573-1.05z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 12h.01M12 12a2 2 0 100-4 2 2 0 000 4z" />
+        </svg>
+      ),
+      show: isAdmin,
+    }
   ];
 
   return (
