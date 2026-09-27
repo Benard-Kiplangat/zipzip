@@ -45,12 +45,14 @@ export default function POS() {
       alert("Please enter the customer's name for a credit sale.");
       return;
     }
-
-    const total = qty * price;
+  
+    const subtotal = qty * product.sellingPrice;
+    const discount = Math.max(subtotal - (price * qty), 0);
+    const total = subtotal - discount;
     const profit = total - product.costPrice * qty;
 
     const sale = {
-      _id: new Date().toISOString(),
+      _id: `sale_${new Date().toISOString()}`,
       type: "sale",
       name: product.name,
       quantity: qty,
@@ -58,6 +60,7 @@ export default function POS() {
       costPrice: product.costPrice,
       sellingPrice: price,
       profit,
+      discount,
       timestamp: new Date().toISOString(),
       isCreditSale,
       dwnPayment: initialPayment,
@@ -183,17 +186,20 @@ export default function POS() {
     for (let i = 0; i < cart.length; i++) {
       const item = cart[i];
       const product = productIndex.get(item.product._id);
-      const total = item.qty * item.sellingPrice;
-      const profit = total - product.costPrice * item.qty;
+      const subtotal = item.qty * product.sellingPrice;
+    const discount = Math.max(subtotal - (item.sellingPrice * item.qty), 0);
+    const total = subtotal - discount;
+    const profit = total - product.costPrice * item.qty;
 
       const sale = {
-        _id: `${bulkSaleId}-${i}`,
+        _id: `sale_${bulkSaleId}-${i}`,
         type: "sale",
         name: product.name,
         quantity: item.qty,
         total,
         costPrice: product.costPrice,
         sellingPrice: item.sellingPrice,
+        discount,
         profit,
         timestamp: bulkSaleId,
         isCreditSale,
