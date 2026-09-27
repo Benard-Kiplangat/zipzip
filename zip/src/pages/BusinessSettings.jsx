@@ -26,7 +26,7 @@ const SEEDLING_DEFAULTS = {
 
 export default function BusinessSettings() {
   const { currentUser, isAdmin } = useAuth();
-  const { config, updateConfig, resetConfig } = useBusinessConfig();
+  const { config, updateConfig } = useBusinessConfig();
   const [form, setForm] = useState(config);
   const [saving, setSaving] = useState(false);
   //const [crops, setCrops] = useState([]);
