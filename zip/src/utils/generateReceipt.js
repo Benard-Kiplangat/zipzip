@@ -1,54 +1,1190 @@
-import { getConfig } from "./config";
-import { jsPDF } from "jspdf";
+import jsPDF from "jspdf";
 
-export function generateReceipt(sales) {
-  const config = async () => await getConfig();
-  const doc = new jsPDF('p', 'mm', 'a5');
-  const timestamp = new Date().toLocaleString();
-  const barcode = "data:image/png;base64,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"
+export const generateETIMSReceipt = (receipt) => {
+  const {
+    // -------------------------------------------------------
+    // MODE
+    // -------------------------------------------------------
+    etims,
 
-  doc.setFontSize(14);
-  doc.text("Imara AutoSpares Chebirbelek", 20, 20);
+    // -------------------------------------------------------
+    // BUSINESS
+    // -------------------------------------------------------
+    shopName="",
+    shopTradeName,
+    shopAddress,
+    shopPin,
+    shopTel,
 
-  doc.setFontSize(9);
-  doc.text(`Date: ${timestamp}`, 20, 30);
+    // -------------------------------------------------------
+    // TRANSACTION
+    // -------------------------------------------------------
+    invoiceNo,
+    kraInvoiceNumber,
+    receiptNumber,
+    receiptType = "TRAINING",
+    transactionType = "SALE",
+    receiptLabel = "TS",
 
-  doc.setFontSize(12);
-  doc.text("QTY", 20, 40);
-  doc.text("ITEM", 55, 40);
-  doc.text("AMT", 100, 40);
-  doc.text("------------------------------------------------------------------------", 20, 45);
-  doc.setFontSize(12);
+    // -------------------------------------------------------
+    // CUSTOMER
+    // -------------------------------------------------------
+    buyerName,
+    buyerPin,
+    buyerLocation,
 
-  let y = 50;
-  let total = 0;
+    // -------------------------------------------------------
+    // PAYMENT
+    // -------------------------------------------------------
+    paymentMethod = "",
 
-  sales.forEach((sale) => {
-    const qty = sale.quantity || 0;
-    const totalForSale = sale.total || 0;
-    const unitPrice = qty > 0 ? (totalForSale / qty) : totalForSale;
-    doc.text(`${qty}`, 20, y);
-    doc.text(`${sale.name} @ ${unitPrice}`, 32, y);
-    doc.text(`KES ${totalForSale}`, 100, y);
-    y += 8;
-    total += totalForSale;
+    // -------------------------------------------------------
+    // TOTALS
+    // -------------------------------------------------------
+    totalBeforeDiscount = 0,
+    totalDiscount = 0,
+    totalTax = 0,
+    total = 0,
+
+    // -------------------------------------------------------
+    // TAX
+    // -------------------------------------------------------
+
+    // -------------------------------------------------------
+    // ITEMS
+    // -------------------------------------------------------
+    itemCount,
+    items,
+    timestamp,
+
+    // -------------------------------------------------------
+    // eTIMS / SCU
+    // -------------------------------------------------------
+    cuInvoiceNo,
+    cuDate,
+    cuTime,
+    itemCode="--",
+    internalData,
+    receiptSignature,
+    qrBase64,
+
+    // -------------------------------------------------------
+    // OPTIONAL
+    // -------------------------------------------------------
+    kraLogoBase64,
+  } = receipt;
+
+  const rawTaxSummary = receipt.taxSummary || [];
+  const taxSummary = Array.isArray(rawTaxSummary)
+    ? rawTaxSummary
+    : ["a", "b", "c", "a"].map((suffix) => {
+        const defaultLabels = {
+          a: "16% VAT",
+          b: "8% VAT",
+          c: "Zero rated",
+          d: "Exempted",
+        };
+        const rate = rawTaxSummary[`tax_rate_${suffix}`];
+        const rateLabel = rate !== undefined && rate !== null && rate !== ""
+          ? defaultLabels[suffix] : `${String(rate).replace(/%$/, "")}% VAT`;
+
+        return {
+          label: rateLabel,
+          rate: "",
+          taxableAmount: rawTaxSummary[`taxable_amount_${suffix}`] ?? 0,
+          taxAmount: rawTaxSummary[`tax_amount_${suffix}`] ?? 0,
+        };
+      });
+
+  const date = timestamp.split("T")[0];
+  const time = new Date(timestamp).toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', second:'2-digit', hour12: false });
+
+  /*
+   * =========================================================
+   * HELPERS
+   * =========================================================
+   */
+
+  const safe = (value, fallback = "-") => {
+    if (
+      value === null ||
+      value === undefined ||
+      value === ""
+    ) {
+      return fallback;
+    }
+
+    return String(value);
+  };
+
+  const money = (value) => {
+    const number = Number(value || 0);
+
+    return number.toLocaleString("en-KE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  /*
+   * =========================================================
+   * ESTIMATE RECEIPT HEIGHT
+   * =========================================================
+   *
+   * Thermal receipts should ideally remain one continuous
+   * page rather than creating page 2.
+   */
+
+  const estimatedItemHeight = items.reduce(
+    (height, sale) => {
+      const description = safe(
+        sale.name,
+        "Item"
+      );
+
+      const descriptionLines = Math.max(
+        1,
+        Math.ceil(description.length / 32)
+      );
+
+      return (
+        height +
+        9 +
+        (descriptionLines - 1) * 3
+      );
+    },
+    0
+  );
+
+  const taxHeight = etims
+    ? Math.max(1, taxSummary.length) * 2
+    : 0;
+
+  const scUHeight = etims ? 25 : 0;
+
+  const typeHeight = receiptType !== "Normal" && etims ? 6 : 0;
+
+  const estimatedHeight =
+    35 +                     // Header
+    25 +                     // Receipt information
+    10 +                     // Items header
+    estimatedItemHeight +
+    35 +                     // Totals
+    taxHeight +
+    scUHeight
+    + typeHeight +
+    (etims && qrBase64 ? 35 : 15) +
+    (etims ? 25 : 0);                 // Footer 
+
+  const receiptHeight = Math.max(
+    105,
+    Math.ceil(etims ? estimatedHeight - 35 : estimatedHeight - 55 )
+  );
+
+  /*
+   * =========================================================
+   * PDF
+   * =========================================================
+   */
+
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: [80, receiptHeight],
   });
 
-  y += 2;
-  doc.setFontSize(10);
-  doc.text(`SUBTOTAL: KES ${total}`, 20, y);
-  y += 7;
+  const PAGE_WIDTH = 80;
+  const LEFT = 3;
+  const RIGHT = 77;
+  const CENTER = PAGE_WIDTH / 2;
 
-  doc.setFontSize(14);
-  doc.text(`TOTAL: KES ${total}`, 20, y);
+  let y = 10;
+
+  /*
+   * =========================================================
+   * DRAWING HELPERS
+   * =========================================================
+   */
+
+  const drawLine = () => {
+    doc.line(LEFT, y, RIGHT, y);
+    y += 4;
+  };
+
+  const sectionHeading = (text) => {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text(text, LEFT, y);
+
+    y += 4;
+
+    doc.setFont("helvetica", "normal");
+  };
+
+  /*
+   * Label/value helper.
+   *
+   * Notice the explicit space after ":".
+   *
+   * Example:
+   * PIN: P051234567A
+   */
+
+  const drawLabelValue = (
+    label,
+    value,
+    x = LEFT,
+    width = 35
+  ) => {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.2);
+
+    const labelText = `${label}: `;
+
+    doc.text(
+      labelText,
+      x,
+      y
+    );
+
+    const labelWidth =
+      doc.getTextWidth(labelText);
+
+    doc.setFont("helvetica", "normal");
+
+    const valueLines =
+      doc.splitTextToSize(
+        safe(value),
+        width - labelWidth
+      );
+
+    doc.text(
+      valueLines,
+      x + labelWidth,
+      y
+    );
+
+    return Math.max(
+      1,
+      valueLines.length
+    ) * 3;
+  };
+
+  /*
+   * Two-column receipt information.
+   */
+
+  const drawTwoColumnRow = (
+    leftLabel,
+    leftValue,
+    rightLabel,
+    rightValue
+  ) => {
+    const rowY = y;
+
+    const leftX = LEFT;
+    const rightX = 42;
+
+    const leftWidth = 36;
+    const rightWidth = 35;
+
+    const leftHeight = drawLabelValue(
+      leftLabel,
+      leftValue,
+      leftX,
+      leftWidth
+    );
+
+    /*
+     * Reset Y so the right column starts at exactly
+     * the same vertical position.
+     */
+    y = rowY;
+
+    const rightHeight = drawLabelValue(
+      rightLabel,
+      rightValue,
+      rightX,
+      rightWidth
+    );
+
+    y = rowY + Math.max(
+      leftHeight,
+      rightHeight
+    );
+  };
+
+  const drawRightTotal = (
+    label,
+    value,
+    bold = false
+  ) => {
+    doc.setFont(
+      "helvetica",
+      bold ? "bold" : "normal"
+    );
+
+    doc.setFontSize(
+      bold ? 8 : 6.5
+    );
+
+    doc.text(
+      `${label}:`,
+      35,
+      y
+    );
+
+    doc.text(
+      money(value),
+      RIGHT,
+      y,
+      { align: "right" }
+    );
+
+    y += bold ? 4.5 : 3.5;
+  };
+
+  const drawLeftTotal = (
+    label,
+    value,
+    bold = false
+  ) => {
+    doc.setFont(
+      "helvetica",
+      bold ? "bold" : "normal"
+    );
+
+    doc.setFontSize(
+      bold ? 8 : 6.5
+    );
+
+    doc.text(
+      `${label}:`,
+      3,
+      y
+    );
+
+    doc.text(
+      money(value),
+      RIGHT,
+      y,
+      { align: "right" }
+    );
+
+    y += bold ? 4.5 : 3.5;
+  };
+
+  /*
+   * =========================================================
+   * HEADER
+   * =========================================================
+   */
+
+  if (kraLogoBase64 && etims) {
+    try {
+      doc.addImage(
+        kraLogoBase64,
+        "PNG",
+        CENTER - 6,
+        y,
+        12,
+        10
+      );
+
+      y += 12;
+    } catch (error) {
+      console.warn(
+        "Unable to render KRA logo",
+        error
+      );
+    }
+  }
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+
+  doc.text(
+    safe(shopName),
+    CENTER,
+    y,
+    { align: "center" }
+  );
+
+  y += 4;
+
+  if (shopAddress) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+
+    const addressLines =
+      doc.splitTextToSize(
+        safe(shopAddress),
+        70
+      );
+
+    doc.text(
+      addressLines,
+      CENTER,
+      y,
+      { align: "center" }
+    );
+
+    y +=
+      addressLines.length * 3.5;
   
-  y += 5;
-  doc.addImage(barcode, "PNG", 20, y);
+    y += 0.5
+  }
 
-  y += 32;
+  if (shopTel) {
+    doc.setFontSize(8);
 
-  doc.setFontSize(10);
-  doc.text("Thank you for your purchase!", 50, y);
+    doc.text(
+      `Tel: ${safe(shopTel)}`,
+      CENTER,
+      y,
+      { align: "center" }
+    );
 
-  doc.save(`receipt-${Date.now()}.pdf`);
+    y += 4;
+  }
+
+  if (shopPin) {
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+
+  doc.text(
+    `PIN: ${safe(shopPin)}`,
+    CENTER,
+    y,
+    { align: "center" }
+  );
+   y += 4;
+  }
+ 
+y -= 2;
+  drawLine();
+
+  /*
+   * =========================================================
+   * RECEIPT TITLE
+   * =========================================================
+   */
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+
+  const title =
+    transactionType === "CREDIT NOTE"
+      ? "CREDIT NOTE"
+      : "TAX INVOICE";
+
+  /*
+   * For non-eTIMS sales this is simply a receipt.
+   */
+  const receiptTitle = etims
+    ? title
+    : "";
+
+  doc.text(
+    receiptTitle,
+    CENTER,
+    y,
+    { align: "center" }
+  );
+
+  etims ? y += 4 : y = y;
+
+  /*
+   * =========================================================
+   * COPY / TRAINING / PROFORMA
+   * =========================================================
+   */
+
+  if (
+    etims &&
+    receiptType !== "NORMAL"
+  ) {/*
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+
+    doc.text(
+      receiptType,
+      CENTER,
+      y,
+      { align: "center" }
+    );
+
+    y += 3.5;
+*/
+    doc.setFontSize(6);
+
+    doc.text(
+      "THIS IS NOT AN OFFICIAL RECEIPT",
+      CENTER,
+      y,
+      { align: "center" }
+    );
+
+    y += 4;
+  }
+
+  /*
+   * =========================================================
+   * RECEIPT INFORMATION
+   * =========================================================
+   */
+/*
+  sectionHeading("RECEIPT INFORMATION");
+*/
+  /*
+   * TWO COLUMN LAYOUT
+   *
+   * Left                      Right
+   * ------------------------------------------------
+   * Receipt No: 123           Date: 28/08/2026
+   * Receipt Type: NORMAL      Time: 14:32:10
+   * Customer: John Doe        Payment: CASH
+   * Buyer PIN: P...           Items: 3
+   */
+
+  drawTwoColumnRow(
+    "Receipt No",
+    invoiceNo || receiptNumber,
+    "Date",
+    date
+  );
+
+  drawTwoColumnRow(
+    "Receipt Type",
+    receipt.receiptType || "NORMAL",
+    "Time",
+    time
+  );
+
+  const paymentMd = paymentMethod || items[0].paymentMethod || "Cash - Paid";
+
+  drawTwoColumnRow(
+    "Customer",
+    buyerName || items[0].customerName || "Walk-in Customer",
+    "Payment",
+    `${paymentMd === "mpesa" ? `${paymentMd} - ${items[0]?.mpesaTransactionId}` : paymentMd}`
+  );
+
+  drawTwoColumnRow(
+    "Buyer PIN",
+    buyerPin || items[0]?.customerPin || "N/A",
+    "Items",
+    itemCount ?? items.length
+  );
+
+  if (etims) {
+    drawTwoColumnRow(
+      "Transaction",
+      transactionType,
+      "Label",
+      receiptLabel
+    );
+  }
+
+  if (buyerLocation) {
+    y += 1;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.2);
+
+    doc.text(
+      "Location: ",
+      LEFT,
+      y
+    );
+
+    const labelWidth =
+      doc.getTextWidth("Location: ");
+
+    doc.setFont("helvetica", "normal");
+
+    const locationLines =
+      doc.splitTextToSize(
+        safe(buyerLocation),
+        72 - labelWidth
+      );
+
+    doc.text(
+      locationLines,
+      LEFT + labelWidth,
+      y
+    );
+
+    y +=
+      Math.max(
+        1,
+        locationLines.length
+      ) * 3;
+  }
+
+  drawLine();
+
+  /*
+   * =========================================================
+   * ITEMS
+   * =========================================================
+   */
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6);
+
+  doc.text(
+    "DESCRIPTION",
+    LEFT,
+    y
+  );
+
+  doc.text(
+    "QTY",
+    39,
+    y,
+    { align: "right" }
+  );
+
+  doc.text(
+    "PRICE",
+    49,
+    y,
+    { align: "right" }
+  );
+
+   doc.text(
+    etims ? "TAXABLE" : "DISCOUNT",
+    64,
+    y,
+    { align: "right" }
+  );
+
+  doc.text(
+    "TOTAL",
+    RIGHT,
+    y,
+    { align: "right" }
+  );
+
+  y += 2;
+
+  doc.line(
+    LEFT,
+    y,
+    RIGHT,
+    y
+  );
+
+  y += 3;
+
+  /*
+   * ---------------------------------------------------------
+   * ITEM ROWS
+   * ---------------------------------------------------------
+   */
+
+  items.forEach((sale, index) => {
+    const name = safe(
+      sale.name,
+      "Item"
+    );
+
+    const quantity = Number(
+      sale.quantity || sale.qty || 0
+    );
+
+    const amount = Number(
+      sale.total_amount || sale.total || sale.qty * sale.sellingPrice || 0
+    );
+
+      const taxableAmount = Number(
+      amount - (0.16 * amount) ?? 0
+    );
+
+    const discount = Number(
+      sale.discount ?? 0
+    )
+
+    /*
+     * Use supplied unit price when available.
+     * Don't unnecessarily reconstruct transaction values.
+     */
+    const unitPrice =
+      (sale.unitPrice || sale.sellingPrice) !== undefined
+        ? Number(sale.unit_price || sale.sellingPrice)
+        : quantity > 0
+          ? amount / quantity
+          : 0;
+
+    /*
+     * Description
+     */
+    const descriptionLines =
+      doc.splitTextToSize(
+        name,
+        36
+      );
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+
+    doc.text(
+      `${index + 1}. ${descriptionLines[0]}`,
+      LEFT,
+      y
+    );
+
+    y += 3;
+
+    for (
+      let i = 1;
+      i < descriptionLines.length;
+      i++
+    ) {
+      doc.text(
+        descriptionLines[i],
+        LEFT + 4,
+        y
+      );
+
+      y += 3;
+    }
+
+    /*
+     * Item metadata
+     *
+     * eTIMS: show tax designation / HS code
+     * Normal receipt: don't show eTIMS tax information.
+     */
+
+    if (etims) {
+      doc.setFontSize(5.5);
+
+      doc.text(
+        `Item Code: ${itemCode}`,
+        LEFT + 4,
+        y
+      );
+    }
+
+    /*
+     * Numbers
+     */
+
+    doc.setFontSize(6);
+
+    doc.text(
+      quantity.toFixed(2),
+      39,
+      y,
+      { align: "right" }
+    );
+
+    doc.text(
+      money(unitPrice),
+      49,
+      y,
+      { align: "right" }
+    );
+
+    doc.text(
+      money(etims ? taxableAmount : discount),
+      64,
+      y,
+      { align: "right" }
+    );
+
+      doc.text(
+      money(amount),
+      RIGHT,
+      y,
+      { align: "right" }
+    );
+
+    y += 4;
+  });
+
+  drawLine();
+
+  /*
+   * =========================================================
+   * TOTALS
+   * =========================================================
+   */
+
+  y += 1;
+
+    if (
+    Number(totalDiscount || 0) !== 0
+  ) {
+    drawLeftTotal(
+      "Discount",
+      Math.abs(
+        Number(totalDiscount)
+      ),
+      true
+    );
+  }
+
+    drawLeftTotal(
+      "Subtotal",
+      total || items[0]?.bulkTotal + totalDiscount || items[0].total + totalDiscount,
+      true
+    );
+
+  etims && drawLine()
+
+  /*
+   * ---------------------------------------------------------
+   * eTIMS TAX BREAKDOWN
+   * ---------------------------------------------------------
+   *
+   * Only show tax information for eTIMS receipts.
+   */
+
+  if (
+    etims &&
+    taxSummary.length > 0
+  ) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(5.5);
+
+    doc.text(
+      "RATE",
+      LEFT,
+      y
+    );
+
+    doc.text(
+      "TAXABLE",
+      48,
+      y,
+      { align: "right" }
+    );
+
+    doc.text(
+      "TAX",
+      RIGHT,
+      y,
+      { align: "right" }
+    );
+
+    y += 2;
+
+    doc.line(
+      LEFT,
+      y,
+      RIGHT,
+      y
+    );
+
+    y += 3;
+
+    taxSummary.forEach((tax) => {
+      doc.setFont(
+        "helvetica",
+        "normal"
+      );
+
+      doc.text(
+        `${safe(tax.label)} ${safe(tax.rate)}`,
+        LEFT,
+        y
+      );
+
+      doc.text(
+        money(tax.taxableAmount),
+        48,
+        y,
+        { align: "right" }
+      );
+
+      doc.text(
+        money(tax.taxAmount),
+        RIGHT,
+        y,
+        { align: "right" }
+      );
+
+      y += 4;
+    });
+
+    y-=2;
+
+    etims && drawLine() && (y -= 6);
+
+    drawLeftTotal(
+      "Total Tax",
+      totalTax,
+      true
+    );
+  }
+
+  /*
+   * ---------------------------------------------------------
+   * GRAND TOTAL
+   * ---------------------------------------------------------
+   */
+
+  drawLeftTotal(
+    etims
+      ? "Total To Pay"
+      : "Total To Pay",
+    (total || items[0]?.bulkTotal || items[0].total),
+    true
+  );
+
+  y -= 1.5;
+
+  /*
+   * =========================================================
+   * eTIMS SCU INFORMATION
+   * =========================================================
+   *
+   * Completely omitted for normal receipts.
+   */
+
+  if (etims) {
+    drawLine();
+
+    sectionHeading(
+      "SCU INFORMATION"
+    );
+
+    drawTwoColumnRow(
+      "Date",
+      cuDate || date,
+      "Time",
+      cuTime || time
+    );
+
+    drawTwoColumnRow(
+      "CU Invoice No",
+      cuInvoiceNo,
+      "KRA Invoice Number",
+      kraInvoiceNumber,
+    );
+
+    /*
+     * Internal Data
+     */
+    if (internalData) {
+      y += 1;
+
+      doc.setFont(
+        "helvetica",
+        "bold"
+      );
+
+      doc.setFontSize(6);
+
+      doc.text(
+        "Internal Data: ",
+        LEFT,
+        y
+      );
+
+      const labelWidth =
+        doc.getTextWidth(
+          "Internal Data: "
+        );
+
+      doc.setFont(
+        "helvetica",
+        "normal"
+      );
+
+      const internalLines =
+        doc.splitTextToSize(
+          safe(internalData),
+          72 - labelWidth
+        );
+
+      doc.text(
+        internalLines,
+        LEFT + labelWidth,
+        y
+      );
+
+      y +=
+        Math.max(
+          1,
+          internalLines.length
+        ) * 2.7 + 2;
+    }
+
+    /*
+     * Receipt Signature
+     */
+    if (receiptSignature) {
+      doc.setFont(
+        "helvetica",
+        "bold"
+      );
+
+      doc.setFontSize(6);
+
+      doc.text(
+        "Receipt Signature: ",
+        LEFT,
+        y
+      );
+
+      const labelWidth =
+        doc.getTextWidth(
+          "Receipt Signature: "
+        );
+
+      doc.setFont(
+        "helvetica",
+        "normal"
+      );
+
+      const signatureLines =
+        doc.splitTextToSize(
+          safe(receiptSignature),
+          72 - labelWidth
+        );
+
+      doc.text(
+        signatureLines,
+        LEFT + labelWidth,
+        y
+      );
+
+      y +=
+        Math.max(
+          1,
+          signatureLines.length
+        ) * 2.7 + 2;
+    }
+
+    /*
+     * -------------------------------------------------------
+     * QR
+     * -------------------------------------------------------
+     */
+
+    if (qrBase64) {
+      y -= 2;
+
+      try {
+        const QR_SIZE = 27;
+
+        doc.addImage(
+          qrBase64,
+          "PNG",
+          CENTER - QR_SIZE / 2,
+          y,
+          QR_SIZE,
+          QR_SIZE
+        );
+
+        y += QR_SIZE + 2;
+
+        doc.setFont(
+          "helvetica",
+          "normal"
+        );
+
+        doc.setFontSize(5);
+
+        doc.text(
+          "Scan to verify this eTIMS receipt",
+          CENTER,
+          y,
+          { align: "center" }
+        );
+
+        y += 2;
+      } catch (error) {
+        console.warn(
+          "Unable to render eTIMS QR code",
+          error
+        );
+      }
+    }
+  }
+
+  /*
+   * =========================================================
+   * FOOTER
+   * =========================================================
+   */
+
+  drawLine();
+
+  doc.setFont(
+    "helvetica",
+    "bold"
+  );
+
+  doc.setFontSize(6.5);
+
+  doc.text(
+    "THANK YOU FOR YOUR BUSINESS",
+    CENTER,
+    y,
+    { align: "center" }
+  );
+
+  y += 3;
+
+  doc.setFont(
+    "helvetica",
+    "normal"
+  );
+
+  doc.setFontSize(5.5);
+
+  doc.text(
+    "We look forward to serving you again.",
+    CENTER,
+    y,
+    { align: "center" }
+  );
+
+  etims ? y +=2 : y = y;
+
+  etims ? (
+  doc.text(
+    "Prices inclusive of tax where applicable",
+    CENTER,
+    y,
+    { align: "center" }
+  )
+) : ""
+  /*
+   * ---------------------------------------------------------
+   * eTIMS footer reference
+   * ---------------------------------------------------------
+   */
+
+  if (etims && cuInvoiceNo) {
+    y += 4;
+
+    doc.setFontSize(5);
+
+    doc.text(
+      `CU Invoice No: ${safe(cuInvoiceNo)}`,
+      CENTER,
+      y,
+      { align: "center" }
+    );
+  }
+
+  /*
+   * =========================================================
+   * PRINT
+   * =========================================================
+   */
+
+  const pdfBlobUrl = doc.output('bloburl');
+  const printWindow = window.open(pdfBlobUrl);
+
+if (printWindow) {
+  printWindow.onload = () => {
+    printWindow.print();
+  };
 }
+};
