@@ -9,6 +9,7 @@ import Users from './pages/Users';
 import UserLogin from './components/UserLogin';
 import Navbar from './components/Navbar';
 import { useAuth } from './context/AuthContext';
+import BusinessSettings from './pages/BusinessSettings';
 import './index.css';
 
 function RequireAuth({ children }) {
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="/customers" element={<RequireAuth><Customers /></RequireAuth>} />
           <Route path="/sales" element={<RequireAuth><Sales /></RequireAuth>} />
           <Route path="/users" element={<AdminRoute><Users /></AdminRoute>} />
+          <Route path="/settings" element={<AdminRoute><BusinessSettings /></AdminRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
