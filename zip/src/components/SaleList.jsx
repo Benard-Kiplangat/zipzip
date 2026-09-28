@@ -50,7 +50,7 @@ async function getNextInvoiceNumber(prefix) {
     try {
       counter = await db.get(counterId);
     } catch (error) {
-      if (error.status !== 404) throw error;
+      if (error.status !== 404) console.log(error);
       const legacyValue = Number.parseInt(localStorage.getItem(legacyKey) || "0", 10);
       counter = {
         _id: counterId,
@@ -415,7 +415,6 @@ const handleReceiptClick = async (items, key) => {
     receiptInProgressRef.current = true;
     setGeneratingReceiptKey(key);
     try {
-      console.log(etimsMode);
       await generateSaleReceipt(items, etimsMode, config);
     } catch (error) {
       console.error("DigiTax receipt error", error);

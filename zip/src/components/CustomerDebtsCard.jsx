@@ -14,7 +14,7 @@ export default function CustomerDebtsCard({ customerCredits = [], grandCreditTot
         </span>
       </h2>
 
-      <div className="space-y-2 max-h-[350px] px-0.5 overflow-y-auto">
+      <div className="space-y-2 px-0.5">
         {customerCredits.map((customer) => (
           <div
             key={customer.name}

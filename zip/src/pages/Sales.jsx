@@ -51,48 +51,48 @@ export default function Sales() {
     const usedDate = dateStr || selectedDate;
     const [y, m, d] = usedDate.split('-').map(Number);
 
-    const normalizeSaleId = async () => {
-      const docs = await db.allDocs({ 
-        include_docs: true,
-        attachments: true,
-      });
+    // const normalizeSaleId = async () => {
+    //   const docs = await db.allDocs({ 
+    //     include_docs: true,
+    //     attachments: true,
+    //   });
 
-      const sales = docs.rows.map(row => row.doc).filter(doc => doc && doc.type === "sale" && !doc._id.startsWith("sale"));
-      
-      const ops = [];
+    //   const sales = docs.rows.map(row => row.doc).filter(doc => doc && doc.type === "sale" && !doc._id.startsWith("sale"));
 
-      sales.forEach(async (sale) => {
-        const newId = `sale_${sale._id}`;
-        const newDoc = {
-          ...sale,
-          _id: newId,
-          _rev: undefined,
-        }
-        const oldDoc = {
-          _id: sale._id,
-          _rev: sale._rev,
-          _deleted: true
-        }
-        ops.push(newDoc, oldDoc)
-      })
+    //   const ops = [];
 
-      const res = await db.bulkDocs(ops);
-      const conflicts = res.filter(r => r.error);
-      console.log("renamed:", sales.length, "with", conflicts.length, "conflicts");
-      localStorage.setItem("saleIdNormalized", true);
-    }
+    //   sales.forEach(async (sale) => {
+    //     const newId = `sale_${sale._id}`;
+    //     const newDoc = {
+    //       ...sale,
+    //       _id: newId,
+    //       _rev: undefined,
+    //     }
+    //     const oldDoc = {
+    //       _id: sale._id,
+    //       _rev: sale._rev,
+    //       _deleted: true
+    //     }
+    //     ops.push(newDoc, oldDoc)
+    //   })
 
-    const normalizeSaleIdElectron = async () => {
-      const docs = await db.allDocs({ include_docs: true });
-      const sales = docs.rows.map(row => row.doc).filter(doc => doc && doc.type === "sale" && !doc._id.startsWith("sale"));
-      sales.forEach(async (sale) => {
-        await db.put({...sale, _id: `sale_${sale._id}`})
-      })
-      localStorage.setItem("saleIdNormalized", true);
-      alert("Done!")
-    }
+    //   const res = await db.bulkDocs(ops);
+    //   const conflicts = res.filter(r => r.error);
+    //   console.log("renamed:", sales.length, "with", conflicts.length, "conflicts");
+    //   localStorage.setItem("saleIdNormalized", true);
+    // }
 
-    localStorage.getItem("saleIdNormalized") ? "" : window.electronAPI ? normalizeSaleIdElectron() : normalizeSaleId();
+    // const normalizeSaleIdElectron = async () => {
+    //   const docs = await db.allDocs({ include_docs: true });
+    //   const sales = docs.rows.map(row => row.doc).filter(doc => doc && doc.type === "sale" && !doc._id.startsWith("sale"));
+    //   sales.forEach(async (sale) => {
+    //     await db.put({...sale, _id: `sale_${sale._id}`})
+    //   })
+    //   localStorage.setItem("saleIdNormalized", true);
+    //   alert("Done!")
+    // }
+
+    // localStorage.getItem("saleIdNormalized") ? "" : window.electronAPI ? normalizeSaleIdElectron() : normalizeSaleId();
 
     const result = await db.allDocs({
       include_docs: true,
@@ -618,6 +618,24 @@ export default function Sales() {
           {viewMode === "todaySales" && (
             <div className="grid grid-cols-1 lg:grid-cols-3 w-full gap-2">
               <div className="lg:col-span-2 max-w-xl">
+                <div className="grid grid-cols-3 sm:flex sm:justify-between overflow-auto gap-2 mb-2">
+                  <div className="rounded-xl min-w-[135px] border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Revenue</p>
+                    <p className="mt-0.5 truncate text-lg font-bold text-slate-900">KES {formatWhole(summary.totalRevenue).toLocaleString()}.00</p>
+                  </div>
+
+                  <div className="rounded-xl min-w-[135px] border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Due</p>
+                    <p className="mt-0.5 truncate text-lg font-bold text-amber-600">KES {formatWhole(summary.totalDue).toLocaleString()}.00</p>
+                  </div>
+
+                  {canViewProfit && (
+                    <div className="rounded-xl border min-w-[135px] border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Profit</p>
+                      <p className="mt-0.5 truncate text-lg font-bold text-emerald-600">KES {formatWhole(summary.totalProfit).toLocaleString()}.00</p>
+                    </div>
+                  )}
+                </div>
 
                 <div className="flex gap-2">
                   <input

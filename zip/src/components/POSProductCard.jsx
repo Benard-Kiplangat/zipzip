@@ -57,7 +57,7 @@ export default function POSProductCard({
           </span>
         </div>
         <p className="text-xs text-slate-500 font-medium whitespace-nowrap">
-          Total: Ksh {totalPrice.toLocaleString()} ( profit = {formatWhole(totalProfit)} )
+          Total: Ksh {totalPrice.toLocaleString()} ( profit {formatWhole(totalProfit)} )
         </p>
       </div>
       {/* Selling controls */}

@@ -165,7 +165,7 @@ export const generateETIMSReceipt = (receipt) => {
   const typeHeight = receiptType !== "Normal" && etims ? 6 : 0;
 
   const estimatedHeight =
-    35 +                     // Header
+    15 +                     // Header
     25 +                     // Receipt information
     10 +                     // Items header
     estimatedItemHeight +
@@ -177,7 +177,7 @@ export const generateETIMSReceipt = (receipt) => {
     (etims ? 25 : 0);                 // Footer 
 
   const receiptHeight = Math.max(
-    105,
+    95,
     Math.ceil(etims ? estimatedHeight - 35 : estimatedHeight - 55 )
   );
 
