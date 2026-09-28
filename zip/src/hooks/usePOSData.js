@@ -71,54 +71,26 @@ export function usePOSData() {
   // ==================================================
 
   const loadOutstandingCredits = useCallback(async () => {
+
     try {
-      let result;
 
-      /*
-       * IMPORTANT:
-       *
-       * Instead of:
-       *
-       *   db.allDocs({ include_docs: true })
-       *
-       * we ask the database for credit sales only.
-       */
+      const salesDocs = await db.allDocs({
+        include_docs: true,
+        startkey: "sale",
+        endkey: "sale\uffff",
+      });
 
-      try {
-        result = await db.find({
-          selector: {
-            type: "sale",
-            isCreditSale: true,
-            isCreditPaid: false,
-          },
-        });
-      } catch (findError) {
-        /*
-         * Fallback for databases that don't have
-         * Mango/find enabled.
-         */
-        console.warn(
-          "db.find() failed, falling back to allDocs()",
-          findError
-        );
+      salesDocs.rows = salesDocs.rows.filter(
+        (row) =>
+          row.doc?.isCreditSale &&
+          !row.doc?.isCreditPaid
+      );
 
-        result = await db.allDocs({
-          include_docs: true,
-        });
-
-        result.rows = result.rows.filter(
-          (row) =>
-            row.doc?.type === "sale" &&
-            row.doc?.isCreditSale &&
-            !row.doc?.isCreditPaid
-        );
-      }
-
-      const sales = result.docs
-        ? result.docs
-        : result.rows
-            .map((row) => row.doc)
-            .filter(Boolean);
+      const sales = salesDocs.docs
+        ? salesDocs.docs
+        : salesDocs.rows
+          .map((row) => row.doc)
+          .filter(Boolean);
 
       // ==================================================
       // Group bulk sales
@@ -321,7 +293,7 @@ export function usePOSData() {
             const itemTotal =
               Number(item.total) ||
               (Number(item.price) || 0) *
-                (Number(item.quantity) || 0);
+              (Number(item.quantity) || 0);
 
             return sum + itemTotal;
           },
@@ -331,7 +303,7 @@ export function usePOSData() {
         saleTotal =
           Number(entry.total) ||
           (Number(entry.price) || 0) *
-            (Number(entry.quantity) || 0);
+          (Number(entry.quantity) || 0);
       }
 
       // ----------------------------------------------
@@ -395,18 +367,16 @@ export function usePOSData() {
 
         detail: entry.isBulkGroup
           ? `${entry.items?.length || 0} Bulk items (${(
-              entry.items || []
+            entry.items || []
+          )
+            .map(
+              (item) =>
+                `${Number(item.quantity) || 0} ${item.name || "Unknown item"
+                }`
             )
-              .map(
-                (item) =>
-                  `${Number(item.quantity) || 0} ${
-                    item.name || "Unknown item"
-                  }`
-              )
-              .join(", ")})`
-          : `${Number(entry.quantity) || 0} ${
-              entry.name || "Unknown item"
-            }`,
+            .join(", ")})`
+          : `${Number(entry.quantity) || 0} ${entry.name || "Unknown item"
+          }`,
       });
     });
 
