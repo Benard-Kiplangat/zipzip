@@ -7,6 +7,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Find project
+        id: find
+        run: |
+          echo "--- REPO ROOT LIST ---"
+          ls -la
+          echo "--- FIND package.json ---"
+          find. -name "package.json" -type f | head -20
+          PKG=$(find. -name "package.json" -not -path "*/node_modules/*" -not -path "*/android/*" | head -n 1)
+          DIR=$(dirname "$PKG")
+          echo "Found in: $DIR"
+          echo "dir=$DIR" >> $GITHUB_OUTPUT
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -16,28 +28,25 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: List files
-        run: ls -R | head -n 100
-
       - name: Install deps
         run: npm install --legacy-peer-deps
-        working-directory: ./zipzip/zip
+        working-directory: ${{ steps.find.outputs.dir }}
 
       - name: Build web
         run: npm run build
-        working-directory: ./zipzip/zip
+        working-directory: ${{ steps.find.outputs.dir }}
 
       - name: Sync Capacitor
         run: npx cap sync android
-        working-directory: ./zipzip/zip
+        working-directory: ${{ steps.find.outputs.dir }}
 
       - name: Build APK
         run: |
           chmod +x gradlew ./gradlew assembleDebug --no-daemon
-        working-directory: ./zipzip/zip/android
+        working-directory: ${{ steps.find.outputs.dir }}/android
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: pos-debug-apk
-          path: ./zipzip/zip/android/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ steps.find.outputs.dir }}/android/app/build/outputs/apk/debug/app-debug.apk
