@@ -4,9 +4,6 @@ on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: zipzip/zip
     steps:
       - uses: actions/checkout@v4
 
@@ -19,22 +16,28 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: List files
+        run: ls -R | head -n 100
+
       - name: Install deps
         run: npm install --legacy-peer-deps
+        working-directory: ./zipzip/zip
 
       - name: Build web
         run: npm run build
+        working-directory: ./zipzip/zip
 
       - name: Sync Capacitor
         run: npx cap sync android
+        working-directory: ./zipzip/zip
 
       - name: Build APK
         run: |
-          cd android
           chmod +x gradlew ./gradlew assembleDebug --no-daemon
+        working-directory: ./zipzip/zip/android
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: pos-debug-apk
-          path: zipzip/zip/android/app/build/outputs/apk/debug/app-debug.apk
+          path: ./zipzip/zip/android/app/build/outputs/apk/debug/app-debug.apk
