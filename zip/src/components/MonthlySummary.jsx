@@ -68,6 +68,7 @@ export default function MonthlySummary({ allSales = [], selectedDate }) {
   const { canViewProfit } = useAuth();
   const [isExpanded, setIsExpanded] = useState(false);
   const [chartType, setChartType] = useState("bar");
+  const [dataSelection, setDataSelection] = useState("all");
   const refDate = selectedDate ? new Date(selectedDate) : new Date();
 
   const { rows, totals } = useMemo(() => {
@@ -109,37 +110,48 @@ export default function MonthlySummary({ allSales = [], selectedDate }) {
   }, [allSales, refDate]);
 
   const chartRows = [...rows];
+  const allDatasets = [
+    {
+      label: "Revenue",
+      data: chartRows.map(row => row.totalRevenue),
+      backgroundColor: "rgba(37, 99, 235, 0.78)",
+      hoverBackgroundColor: "rgb(29, 78, 216)",
+      borderColor: "rgb(37, 99, 235)",
+      borderRadius: 6,
+      borderSkipped: false,
+    },
+    ...(canViewProfit ? [{
+      label: "Profit",
+      data: chartRows.map(row => row.totalProfit),
+      backgroundColor: "rgba(16, 185, 129, 0.78)",
+      hoverBackgroundColor: "rgb(5, 150, 105)",
+      borderColor: "rgb(16, 185, 129)",
+      borderRadius: 6,
+      borderSkipped: false,
+    }] : []),
+    {
+      label: "Credit due",
+      data: chartRows.map(row => row.creditDue),
+      backgroundColor: "rgba(245, 158, 11, 0.78)",
+      hoverBackgroundColor: "rgb(217, 119, 6)",
+      borderColor: "rgb(245, 158, 11)",
+      borderRadius: 6,
+      borderSkipped: false,
+    },
+  ];
+  const selectionDatasets = {
+    all: ["Revenue", "Profit", "Credit due"],
+    revenueProfit: ["Revenue", "Profit"],
+    revenueCredit: ["Revenue", "Credit due"],
+    credit: ["Credit due"],
+    profit: ["Profit"],
+    revenue: ["Revenue"],
+  };
   const chartData = {
     labels: chartRows.map(row => row.label),
-    datasets: [
-      {
-        label: "Revenue",
-        data: chartRows.map(row => row.totalRevenue),
-        backgroundColor: "rgba(37, 99, 235, 0.78)",
-        hoverBackgroundColor: "rgb(29, 78, 216)",
-        borderColor: "rgb(37, 99, 235)",
-        borderRadius: 6,
-        borderSkipped: false,
-      },
-      ...(canViewProfit ? [{
-        label: "Profit",
-        data: chartRows.map(row => row.totalProfit),
-        backgroundColor: "rgba(16, 185, 129, 0.78)",
-        hoverBackgroundColor: "rgb(5, 150, 105)",
-        borderColor: "rgb(16, 185, 129)",
-        borderRadius: 6,
-        borderSkipped: false,
-      }] : []),
-      {
-        label: "Credit due",
-        data: chartRows.map(row => row.creditDue),
-        backgroundColor: "rgba(245, 158, 11, 0.78)",
-        hoverBackgroundColor: "rgb(217, 119, 6)",
-        borderColor: "rgb(245, 158, 11)",
-        borderRadius: 6,
-        borderSkipped: false,
-      },
-    ],
+    datasets: allDatasets.filter(dataset =>
+      (selectionDatasets[dataSelection] || selectionDatasets.all).includes(dataset.label)
+    ),
   };
 
   const lineData = {
@@ -208,6 +220,14 @@ export default function MonthlySummary({ allSales = [], selectedDate }) {
     { id: "bar", label: "Bar" },
     { id: "line", label: "Line" },
   ];
+  const dataOptions = [
+    { id: "all", label: "All data" },
+    ...(canViewProfit ? [{ id: "revenueProfit", label: "Revenue + profit" }] : []),
+    { id: "revenueCredit", label: "Revenue + credit" },
+    { id: "revenue", label: "Revenue only" },
+    ...(canViewProfit ? [{ id: "profit", label: "Profit only" }] : []),
+    { id: "credit", label: "Credit only" },
+  ];
 
   const chartOptions = axisOptions;
 
@@ -222,22 +242,36 @@ export default function MonthlySummary({ allSales = [], selectedDate }) {
               {refDate.toLocaleString(undefined, { month: "long", year: "numeric" })}
             </p>
           </div>
-          <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setChartType("bar")}
-            className="shrink-0 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            Bar
-          </button>
-          <button
-            type="button"
-            onClick={() => setChartType("line")}
-            className="shrink-0 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            Line  
-          </button>
-          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="chart-type" className="sr-only">
+              Chart type
+            </label>
+            <select
+              id="chart-type"
+              value={chartType}
+              onChange={e => setChartType(e.target.value)}
+              className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {chartTypes.map(type => (
+                <option key={type.id} value={type.id}>
+                  {type.label}
+                </option>
+              ))}
+            </select>
+            <label htmlFor="chart-data" className="sr-only">
+              Data to visualize
+            </label>
+            <select
+              id="chart-data"
+              value={dataSelection}
+              onChange={e => setDataSelection(e.target.value)}
+              className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {dataOptions.map(option => (
+                <option key={option.id} value={option.id}>{option.label}</option>
+              ))}
+            </select>
+          
           <button
             type="button"
             onClick={() => setIsExpanded(expanded => !expanded)}
@@ -246,6 +280,7 @@ export default function MonthlySummary({ allSales = [], selectedDate }) {
           >
             {isExpanded ? "Exit full view" : "Expand chart"}
           </button>
+          </div>
         </div>
 
         <div className={`rounded-xl bg-slate-50/80 p-2 sm:p-4 ${isExpanded ? "h-[calc(100vh-12rem)] min-h-[360px]" : "h-[320px]"}`}>
