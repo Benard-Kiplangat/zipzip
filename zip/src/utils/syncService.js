@@ -87,7 +87,11 @@ export function startSync(remoteUrlOverride) {
           errorMessage: "",
         });
         // Dispatch global db-changed event to trigger page refreshes
-        window.dispatchEvent(new CustomEvent("bosco:db-changed"));
+        window.dispatchEvent(
+          new CustomEvent("bosco:db-changed", {
+            detail: { docs: info.change?.docs },
+          })
+        );
       })
       .on("paused", (err) => {
         if (err) {

@@ -331,7 +331,7 @@ export default function CustomerSummary({
         : "all time";
 
   return (
-    <>
+    <div className="bg-slate-50 p-4 rounded-xl">
       <p className="text-xs text-gray-400 mb-2">
         Click a customer to see their full
         sales history.
@@ -370,15 +370,14 @@ export default function CustomerSummary({
         </select>
 
       </div>
-
-      <p className="text-xs text-gray-400 mb-3">
+   <p className="text-xs text-gray-400 mb-2">
         Showing {summaries.length} customer
         {summaries.length !== 1 ? "s" : ""} ·{" "}
         {rangeLabel}
       </p>
 
       <div className="space-y-3">
-
+ 
         {summaries.length === 0 && (
           <div className="text-sm text-gray-600">
             No customer sales found for this
@@ -432,6 +431,6 @@ export default function CustomerSummary({
           }
         />
       )}
-    </>
+    </div>
   );
 }

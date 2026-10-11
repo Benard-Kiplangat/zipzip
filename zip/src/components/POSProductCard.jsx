@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { memo, useState } from "react";
 import { formatWhole } from "../utils/format";
 
-export default function POSProductCard({
+function POSProductCard({
   product,
   customers = [],
   onSell,
@@ -165,3 +165,5 @@ export default function POSProductCard({
     </div>
   );
 }
+
+export default memo(POSProductCard);

@@ -153,6 +153,14 @@ export function usePOSData() {
     loadOutstandingCredits,
   ]);
 
+  //===================================================
+  // Fo instant custome load 
+  // ==================================================
+
+  useEffect(() => {
+    Promise.all([loadCustomers()])
+  }, [loadCustomers])
+
   // ==================================================
   // DATABASE CHANGE LISTENER
   // ==================================================
@@ -160,7 +168,9 @@ export function usePOSData() {
   useEffect(() => {
     let refreshTimer = null;
 
-    const handleDataRefresh = () => {
+    const handleDataRefresh = (event) => {
+      const changedDocs = event.detail?.docs;
+
       /*
        * Debounce refreshes.
        *
@@ -170,11 +180,50 @@ export function usePOSData() {
       clearTimeout(refreshTimer);
 
       refreshTimer = setTimeout(() => {
-        Promise.all([
-          loadFullProducts(),
+        const refreshTasks = [
           loadCustomers(),
           loadOutstandingCredits(),
-        ]).catch((error) => {
+        ];
+
+        if (!Array.isArray(changedDocs)) {
+          refreshTasks.push(loadFullProducts());
+        } else {
+          const changedProducts = changedDocs.filter(
+            (doc) =>
+              doc?._id?.startsWith("product_") ||
+              doc?.type === "product"
+          );
+
+          if (changedProducts.length > 0) {
+            setProducts((prev) => {
+              const updates = new Map(
+                changedProducts.map((product) => [
+                  product._id,
+                  product,
+                ])
+              );
+              const next = prev
+                .filter((product) => !updates.get(product._id)?._deleted)
+                .map((product) => updates.get(product._id) || product);
+              const existingIds = new Set(
+                next.map((product) => product._id)
+              );
+
+              for (const product of changedProducts) {
+                if (
+                  !product._deleted &&
+                  !existingIds.has(product._id)
+                ) {
+                  next.push(product);
+                }
+              }
+
+              return next;
+            });
+          }
+        }
+
+        Promise.all(refreshTasks).catch((error) => {
           console.error(
             "Failed to refresh POS data:",
             error
@@ -454,6 +503,7 @@ export function usePOSData() {
     lowStockProducts,
 
     customerCredits,
+    loadCustomers,
     grandCreditTotal,
 
     setOutstandingCredits,

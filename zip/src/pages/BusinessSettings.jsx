@@ -6,7 +6,7 @@ import { showToast } from "../utils/toast";
 
 const fieldDefinitions = [
   { name: "businessName", label: "Business Name", placeholder: "" },
-  /*{ name: "businessCode", label: "Business Code", placeholder: "XS" },*/
+  { name: "businessCode", label: "Business Code", placeholder: "YL" },
   { name: "businessTel", label: "Business Contact", placeholder: "" },
   /*{ name: "kraPin", label: "KRA PIN", placeholder: "A123456789B" },*/
   { name: "address", label: "Business Location/Postal Address", placeholder: "Located in..." },
@@ -601,7 +601,7 @@ export default function BusinessSettings() {
       </div>
 
       <form onSubmit={handleSave} className="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 space-y-5">
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           {fieldDefinitions.map((field) => (
             <label key={field.name} className="block text-sm font-medium text-slate-700">
               <span className="mb-1 block">{field.label}</span>

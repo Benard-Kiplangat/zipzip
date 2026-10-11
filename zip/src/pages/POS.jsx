@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { db } from "../db";
 import { showToast } from "../utils/toast";
 import { formatWhole } from "../utils/format";
@@ -23,13 +23,14 @@ export default function POS() {
     loadingProducts,
     setOutstandingCredits,
     bumpPopular,
+    loadCustomers,
   } = usePOSData();
 
   const [cart, setCart] = useState([]);
   const [showLowStockModal, setShowLowStockModal] = useState(false);
 
   // Single Item Sale
-  const handleSell = async (product, options) => {
+  const handleSell = useCallback(async (product, options) => {
     const qty = options.quantity || 1;
     const price = options.sellingPrice || product.sellingPrice;
     const isCreditSale = options.isCreditSale || false;
@@ -45,7 +46,7 @@ export default function POS() {
       alert("Please enter the customer's name for a credit sale.");
       return;
     }
-  
+
     const subtotal = qty * product.sellingPrice;
     const discount = Math.max(subtotal - (price * qty), 0);
     const total = subtotal - discount;
@@ -78,18 +79,24 @@ export default function POS() {
     }
 
     latestProduct.stock = newStock;
-    latestProduct.totalSold = (latestProduct.totalSold || 0) + Number(qty);
+    latestProduct.totalSold =
+      (Number(latestProduct.totalSold) || 0) + Number(qty);
 
     await db.put(sale);
     await db.put(latestProduct);
 
-    setProducts((prev) =>
-      prev.map((item) =>
-        item._id === product._id
-          ? { ...item, stock: Math.max(0, (Number(item.stock) || 0) - qty) }
-          : item
-      )
-    );
+    setProducts((prev) => {
+      const index = prev.findIndex((item) => item._id === product._id);
+      if (index === -1) return prev;
+
+      const next = [...prev];
+      next[index] = {
+        ...next[index],
+        stock: newStock,
+        totalSold: latestProduct.totalSold,
+      };
+      return next;
+    });
 
     if (isCreditSale) {
       setOutstandingCredits((prev) => [
@@ -114,10 +121,10 @@ export default function POS() {
     } catch (e) {
       /* ignore */
     }
-  };
+  }, [bumpPopular, setOutstandingCredits, setProducts]);
 
   // Add Item to Cart
-  const handleAddToCart = (product, options = {}) => {
+  const handleAddToCart = useCallback((product, options = {}) => {
     const qty = options.quantity || 1;
     const price = options.sellingPrice || product.sellingPrice;
 
@@ -134,7 +141,7 @@ export default function POS() {
     });
 
     showToast(`${product.name} added to cart`);
-  };
+  }, []);
 
   const handleCartUpdateQty = (productId, qty) => {
     setCart((prev) =>
@@ -187,9 +194,9 @@ export default function POS() {
       const item = cart[i];
       const product = productIndex.get(item.product._id);
       const subtotal = item.qty * product.sellingPrice;
-    const discount = Math.max(subtotal - (item.sellingPrice * item.qty), 0);
-    const total = subtotal - discount;
-    const profit = total - product.costPrice * item.qty;
+      const discount = Math.max(subtotal - (item.sellingPrice * item.qty), 0);
+      const total = subtotal - discount;
+      const profit = total - product.costPrice * item.qty;
 
       const sale = {
         _id: `sale_${bulkSaleId}-${i}`,
@@ -203,7 +210,7 @@ export default function POS() {
         profit,
         timestamp: bulkSaleId,
         isCreditSale,
-        customerName: isCreditSale ? customerName.trim() : "",
+        customerName: customerName.trim() || "",
         dwnPayment: 0,
         paymentHistory: [],
         bulkDwnPayment: isCreditSale ? Number(dwnPayment) : 0,
@@ -213,7 +220,7 @@ export default function POS() {
 
       await db.put(sale);
 
-      const updatedProduct = { ...product, stock: product.stock - item.qty };
+      const updatedProduct = { ...product, totalSold: (product.totalSold || 0) + Number(item.qty), stock: product.stock - item.qty };
       await db.put(updatedProduct);
 
       try {
@@ -226,16 +233,24 @@ export default function POS() {
     const totalAmount = cart.reduce((sum, item) => sum + item.qty * item.sellingPrice, 0);
     setCart([]);
 
-    setProducts((prev) =>
-      prev.map((product) => {
-        const cartItem = cart.find((item) => item.product._id === product._id);
-        if (!cartItem) return product;
-        return {
-          ...product,
-          stock: Math.max(0, (Number(product.stock) || 0) - cartItem.qty),
-        };
-      })
+    const soldQuantities = new Map(
+      cart.map((item) => [item.product._id, Number(item.qty)])
     );
+    setProducts((prev) => {
+      let next = prev;
+      for (const [productId, qty] of soldQuantities) {
+        const index = next.findIndex((product) => product._id === productId);
+        if (index === -1) continue;
+
+        if (next === prev) next = [...prev];
+        next[index] = {
+          ...next[index],
+          stock: Math.max(0, (Number(next[index].stock) || 0) - qty),
+          totalSold: (Number(next[index].totalSold) || 0) + qty,
+        };
+      }
+      return next;
+    });
 
     if (isCreditSale) {
       const nextCreditEntry = {
@@ -318,9 +333,9 @@ export default function POS() {
         {/* Product Cards List */}
         <div className="space-y-3">
           {loadingProducts && (<div className="text-center py-10 bg-white border rounded-xl text-slate-400 text-sm">
-              Products loading...
-            </div>
-            ) || (visibleProducts.length === 0 ? (
+            Products loading...
+          </div>
+          ) || (visibleProducts.length === 0 ? (
             <div className="text-center py-10 bg-white border rounded-xl text-slate-400 text-sm">
               No products found or still loading.
             </div>
@@ -348,6 +363,7 @@ export default function POS() {
           onClearCart={handleCartClear}
           onMakeSale={handleCartSale}
           customers={customers}
+          loadCustomers={loadCustomers}
         />
 
         <CustomerDebtsCard

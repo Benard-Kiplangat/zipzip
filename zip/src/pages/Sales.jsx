@@ -555,13 +555,12 @@ export default function Sales() {
     ).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   })();
 
-  const visibleSales = Boolean(salesSearch) ? filteredSales.slice(0, 120) : filteredSales;
+  const visibleSales = Boolean(salesSearch) ? filteredSales.slice(0, 70) : filteredSales;
 
   const { canViewProfit } = useAuth();
 
   const todayUnits = sales.reduce((sum, sale) => sum + Number(sale.quantity || 0), 0);
   const discountTotal = sales.reduce((sum, sale) => sum + Number(sale.discount || 0), 0);
-  const grossSales = summary.totalRevenue + discountTotal;
   const creditSales = sales.filter(sale => sale.isCreditSale);
   const pendingCreditSales = creditSales.filter(sale => !sale.isCreditPaid);
   const creditSalesValue = creditSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
@@ -570,30 +569,13 @@ export default function Sales() {
       ? sale.paymentHistory.reduce((payments, payment) => payments + Number(payment.amount || 0), 0)
       : Number(sale.dwnPayment || 0))
   ), 0);
-  const normalSalesCount = sales.length - creditSales.length;
-  const discountRate = (grossSales && discountTotal) ? (discountTotal / grossSales) * 100 : 0;
-  const paymentMethods = sales.reduce((methods, sale) => {
-    const method = sale.paymentMethod || (sale.isCreditSale ? "Credit" : "Cash");
-    methods[method] = (methods[method] || 0) + Number(sale.total || 0);
-    return methods;
-  }, {});
-  const topPaymentMethod = Object.entries(paymentMethods).sort(([, first], [, second]) => second - first)[0];
-  const collectionRate = creditSalesValue
-    ? Math.round((creditSaleDeposits / creditSalesValue) * 100)
-    : 0;
-  const topProducts = Object.entries(productSummaries)
-    .sort(([, first], [, second]) => second.revenue - first.revenue)
-    .slice(0, 10);
 
   return (
     <div className="p-4 pb-32 max-w-4xl">
-      <div className="text-2xl font-bold text-slate-900 pb-1">
-        <h1 className="pb-2">Sales History</h1>
-      </div>
       <div>
-        <div className="">
+        <div className="max-w-4xl flex flex-col items-center justify-center sm:flex-row sm:justify-between">
           <div className="max-w-xl mb-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
-            <div className="flex gap-1 overflow-x-auto items-center justify-around no-wrap">
+            <div className="flex gap-1 overflow-x-auto items-center justify-center no-wrap">
               {[
                 ["todaySales", "Daily Sales"],
                 ["weekly", "Weekly"],
@@ -616,154 +598,131 @@ export default function Sales() {
           </div>
 
           {viewMode === "todaySales" && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 w-full gap-2">
-              <div className="lg:col-span-2 max-w-xl">
-                <div className="grid grid-cols-3 sm:flex sm:justify-between overflow-auto gap-2 mb-2">
-                  <div className="rounded-xl min-w-[135px] border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Revenue</p>
-                    <p className="mt-0.5 truncate text-lg font-bold text-slate-900">KES {formatWhole(summary.totalRevenue).toLocaleString()}.00</p>
-                  </div>
-
-                  <div className="rounded-xl min-w-[135px] border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Due</p>
-                    <p className="mt-0.5 truncate text-lg font-bold text-amber-600">KES {formatWhole(summary.totalDue).toLocaleString()}.00</p>
-                  </div>
-
-                  {canViewProfit && (
-                    <div className="rounded-xl border min-w-[135px] border-slate-200 bg-white px-3 py-2.5 shadow-sm">
-                      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Profit</p>
-                      <p className="mt-0.5 truncate text-lg font-bold text-emerald-600">KES {formatWhole(summary.totalProfit).toLocaleString()}.00</p>
+            <div className="mx-auto rounded-2xl border border-slate-200 p-4 shadow-sm sm:p-5 grid grid-cols-1 lg:grid-cols-3 w-full gap-2 bg-white">
+              <div className="lg:col-span-2 max-w-4xl">
+                <div className="bg-slate-50 rounded-t-xl px-4 pt-4 pb-2">
+                  <div className="grid grid-cols-3 sm:flex sm:justify-between overflow-auto gap-2 mb-2">
+                    <div className="rounded-xl min-w-[135px] border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Revenue</p>
+                      <p className="mt-0.5 truncate text-lg font-bold text-slate-900">KES {formatWhole(summary.totalRevenue).toLocaleString()}.00</p>
                     </div>
-                  )}
-                </div>
 
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Search by product or customer..."
-                    className="min-w-[75px] flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                    value={salesSearch}
-                    onChange={e => setSalesSearch(e.target.value)}
-                  />
-                  <select
-                    value={searchRange}
-                    onChange={e => setSearchRange(e.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                  >
-                    <option value="week">Past 7 days</option>
-                    <option value="month">Past 30 days</option>
-                    <option value="all">All time</option>
-                  </select>
-                </div>
-                <div className="flex items-center justify-between gap-4 shadow-sm py-2 pl-2">
-                  <div className="flex items-center gap-4">
-                    <span
-                      className="flex items-center gap-1 cursor-pointer text-sm text-slate-700 pl-2"
-                      onClick={() => setShowCreditList(prev => !prev)}
+                    <div className="rounded-xl min-w-[135px] border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Due</p>
+                      <p className="mt-0.5 truncate text-lg font-bold text-amber-600">KES {formatWhole(summary.totalDue).toLocaleString()}.00</p>
+                    </div>
+
+                    {canViewProfit && (
+                      <div className="rounded-xl border min-w-[135px] border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Profit</p>
+                        <p className="mt-0.5 truncate text-lg font-bold text-emerald-600">KES {formatWhole(summary.totalProfit).toLocaleString()}.00</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Search by product or customer..."
+                      className="min-w-[75px] flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                      value={salesSearch}
+                      onChange={e => setSalesSearch(e.target.value)}
+                    />
+                    <select
+                      value={searchRange}
+                      onChange={e => setSearchRange(e.target.value)}
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                     >
-                      <input
-                        type="checkbox"
-                        readOnly
-                        checked={showCreditList}
-                        className=""
-                      />
-                      {showCreditList ? "Hide" : "Show"} Credit Sales
-                    </span>
-                    <div className="max-w-xl flex sm:flex-col items-center gap-1">
-                      <label className="flex items-center gap-1 cursor-pointer text-sm text-slate-700 pl-2">
+                      <option value="week">Past 7 days</option>
+                      <option value="month">Past 30 days</option>
+                      <option value="all">All time</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 pt-2 pl-2">
+                    <div className="flex items-center gap-4">
+                      <span
+                        className="flex items-center gap-1 cursor-pointer text-sm text-slate-700 pl-2"
+                        onClick={() => setShowCreditList(prev => !prev)}
+                      >
                         <input
                           type="checkbox"
-                          checked={etimsMode}
-                          onChange={(e) => {
-                            const enabled = e.target.checked;
-                            setEtimsMode(enabled);
-                            localStorage.setItem("etimsMode", String(enabled));
-                          }}
+                          readOnly
+                          checked={showCreditList}
+                          className=""
                         />
+                        {showCreditList ? "Hide" : "Show"} Credit Sales
+                      </span>
+                      <div className="max-w-xl flex sm:flex-col items-center gap-1">
+                        <label className="flex items-center gap-1 cursor-pointer text-sm text-slate-700 pl-2">
+                          <input
+                            type="checkbox"
+                            checked={etimsMode}
+                            onChange={(e) => {
+                              const enabled = e.target.checked;
+                              setEtimsMode(enabled);
+                              localStorage.setItem("etimsMode", String(enabled));
+                            }}
+                          />
 
-                        eTIMS (Test)
-                      </label>
+                          eTIMS (Test)
+                        </label>
+                      </div>
                     </div>
+                    <input
+                      className="rounded-lg mx-1 py-1.5 border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                      type="date"
+                      name="datePick"
+                      id="datePick"
+                      value={selectedDate}
+                      onChange={(e) => { setSelectedDate(e.target.value); loadSales(e.target.value); }}
+                    />
                   </div>
-                  <input
-                    className="rounded-lg mx-1 py-1.5 border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                    type="date"
-                    name="datePick"
-                    id="datePick"
-                    value={selectedDate}
-                    onChange={(e) => { setSelectedDate(e.target.value); loadSales(e.target.value); }}
+                </div>
+                <div className="px-4 pt-1 pb-4 bg-slate-50 rounded-bl-xl border-t border-slate-100">
+                  {salesSearch.trim() && (
+                    <div className="text-xs pt-1 text-gray-500 mb-2">
+                      {filteredSales.length} result{filteredSales.length !== 1 ? "s" : ""} found
+                    </div>
+                  )}
+
+                  <SaleList
+                    sales={visibleSales}
+                    showCreditList={showCreditList}
+                    setShowCreditList={setShowCreditList}
+                    selectedSales={selectedSales}
+                    toggleSaleSelection={toggleSaleSelection}
+                    isSelected={isSelected}
+                    handleEditSale={handleEditSale}
+                    handleDeleteSale={handleDeleteSale}
+                    handleDeleteSaleWithStockRestore={handleDeleteSaleWithStockRestore}
+                    handleMarkBulkPaid={handleMarkBulkPaid}
+                    handleLoadSales={handleLoadSales}
+                    getPaymentInfo={getPaymentInfo}
+                    etimsMode={etimsMode}
+                    config={config}
+                  />
+
+                  <EditSaleModal
+                    editingSale={editingSale}
+                    handleEditChange={handleEditChange}
+                    handleSaveEdit={handleSaveEdit}
+                    handleCancelEdit={handleCancelEdit}
                   />
                 </div>
-                {salesSearch.trim() && (
-                  <div className="text-xs pt-1 text-gray-500 mb-2">
-                    {filteredSales.length} result{filteredSales.length !== 1 ? "s" : ""} found
-                  </div>
-                )}
-
-                <SaleList
-                  sales={visibleSales}
-                  showCreditList={showCreditList}
-                  setShowCreditList={setShowCreditList}
-                  selectedSales={selectedSales}
-                  toggleSaleSelection={toggleSaleSelection}
-                  isSelected={isSelected}
-                  handleEditSale={handleEditSale}
-                  handleDeleteSale={handleDeleteSale}
-                  handleDeleteSaleWithStockRestore={handleDeleteSaleWithStockRestore}
-                  handleMarkBulkPaid={handleMarkBulkPaid}
-                  handleLoadSales={handleLoadSales}
-                  getPaymentInfo={getPaymentInfo}
-                  etimsMode={etimsMode}
-                  config={config}
-                />
-
-                <EditSaleModal
-                  editingSale={editingSale}
-                  handleEditChange={handleEditChange}
-                  handleSaveEdit={handleSaveEdit}
-                  handleCancelEdit={handleCancelEdit}
-                />
               </div>
-              <aside className="space-y-3 lg:sticky lg:mt-[-57px] max-w-xl ml-1 lg:min-w-[300px]">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="mb-3 flex items-center justify-between">
+              <aside className="space-y-3 lg:sticky ml-0.5">
+                <div className="rounded-t-2xl rounded-br-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="mb-3 flex items-center justify-center">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Sales analytics</p>
-                      <p className="mt-1 text-sm font-medium text-slate-700">{selectedDate}</p>
+                      <p className="text-xs font-semibold tracking-wide text-slate-400">Today's Sales Analytics</p>
                     </div>
-                    <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
-                      {collectionRate}% collected
-                    </span>
                   </div>
 
-                  <div className="space-y-3">
-                    <div className="rounded-xl bg-slate-50 p-3">
-                      <p className="text-xs text-slate-500">Total Revenue</p>
-                      <p className="mt-1 text-xl font-bold text-slate-900">
-                        Ksh {formatWhole(summary.totalRevenue).toLocaleString()}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">{todayUnits} Units sold </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="rounded-xl border border-slate-100 p-3">
-                        <p className="text-xs text-slate-500">Total Due</p>
-                        <p className="mt-1 truncate text-lg font-bold text-slate-900">
-                          Ksh {formatWhole(summary.totalDue).toLocaleString()}
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-slate-100 p-3">
-                        <p className="text-xs text-slate-500">{canViewProfit ? "Total Profit" : "Gross Sales"}</p>
-                        <p className="mt-1 truncate text-lg font-bold text-slate-900">
-                          {canViewProfit ? `Ksh. ${formatWhole(summary.totalProfit).toLocaleString()}` : `Ksh ${formatWhole(grossSales).toLocaleString()}`}
-                        </p>
-                      </div>
-                    </div>
-
+                  <div className="space-y-2.5">
                     <div className="flex items-center justify-between border-t border-slate-100 pt-3 text-sm">
                       <span className="text-slate-500">Credit Sales</span>
-                      <span className="font-bold text-sky-700">
-                        {creditSales.length} Credit Sales · Ksh {formatWhole(creditSalesValue).toLocaleString()}
+                      <span className="font-bold text-red-700">
+                        Ksh {formatWhole(creditSalesValue).toLocaleString()}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
@@ -773,7 +732,7 @@ export default function Sales() {
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-slate-500">Discounts given</span>
                       <span className="font-semibold text-slate-800">
-                        Ksh {formatWhole(discountTotal).toLocaleString()} ({discountRate.toFixed(1)}%)
+                        Ksh {formatWhole(discountTotal).toLocaleString()}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
@@ -783,8 +742,8 @@ export default function Sales() {
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-500">Sales Count</span>
-                      <span className="font-semibold text-slate-800">{normalSalesCount}</span>
+                      <span className="text-slate-500">Total units sold </span>
+                      <span className="font-semibold text-slate-800">{todayUnits}</span>
                     </div>
                   </div>
                 </div>
@@ -792,17 +751,10 @@ export default function Sales() {
             </div>
           )}
         </div>
-        {
-          viewMode === "productSummary" && (
-            <div className="max-w-xl">
-              <ProductSummary productSummaries={productSummaries} allSales={allSales} />
-            </div>
-          )
-        }
 
         {
           viewMode === "weekly" && (
-            <div className="max-w-xl">
+            <div className="max-w-4xl">
               <WeeklySummary allSales={allSales} selectedDate={selectedDate} />
             </div>
           )
@@ -810,15 +762,23 @@ export default function Sales() {
 
         {
           viewMode === "monthly" && (
-            <div className="max-w-xl">
+            <div className="max-w-4xl">
               <MonthlySummary allSales={allSales} selectedDate={selectedDate} />
             </div>
           )
         }
 
         {
+          viewMode === "productSummary" && (
+            <div className="max-w-4xl mx-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+              <ProductSummary productSummaries={productSummaries} allSales={allSales} />
+            </div>
+          )
+        }
+
+        {
           viewMode === "customerSummary" && (
-            <div className="max-w-xl">
+            <div className="max-w-4xl mx-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
               <CustomerSummary allSales={allSales} selectedDate={selectedDate} />
             </div>
           )

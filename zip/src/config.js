@@ -4,6 +4,7 @@ const PUBLIC_APP_CONFIG_URL = `${import.meta.env.BASE_URL}config/app-config.json
 const fallbackConfig = {
   businessName: "Autospares Shop",
   businessTel: "",
+  businessCode: "YL"
 };
 export const DEFAULT_APP_CONFIG = Object.freeze(fallbackConfig);
 const STORAGE_KEY = "business-config";

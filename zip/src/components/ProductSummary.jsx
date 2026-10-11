@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useDeferredValue } from "react";
+import { useState, useMemo, useDeferredValue } from "react";
 import { useAuth } from "../context/AuthContext";
 import { formatWhole } from "../utils/format";
 
@@ -127,7 +127,7 @@ export default function ProductSummary({ allSales = [] }) {
   const rangeLabel = productRange === "week" ? "past 7 days" : productRange === "month" ? "past 30 days" : "all time";
 
   return (
-    <>
+    <div className="bg-slate-50 p-4 rounded-xl">
       <p className="text-xs text-gray-400 mb-2">Click a product to see its full sales history.</p>
 
       <div className="flex gap-2 mb-2">
@@ -182,6 +182,6 @@ export default function ProductSummary({ allSales = [] }) {
           onClose={() => setSelectedProduct(null)}
         />
       )}
-    </>
+    </div>
   );
 }

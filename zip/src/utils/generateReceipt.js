@@ -88,6 +88,7 @@ export const generateETIMSReceipt = (receipt) => {
         const rateLabel = rate !== undefined && rate !== null && rate !== ""
           ? defaultLabels[suffix] : `${String(rate).replace(/%$/, "")}% VAT`;
 
+
         return {
           label: rateLabel,
           rate: "",
@@ -165,7 +166,7 @@ export const generateETIMSReceipt = (receipt) => {
   const typeHeight = receiptType !== "Normal" && etims ? 6 : 0;
 
   const estimatedHeight =
-    15 +                     // Header
+    35 +                     // Header
     25 +                     // Receipt information
     10 +                     // Items header
     estimatedItemHeight +
@@ -571,10 +572,11 @@ y -= 2;
   );
 
   drawTwoColumnRow(
-    "Buyer PIN",
+    "CustId",
     buyerPin || items[0]?.customerPin || "N/A",
     "Items",
-    itemCount ?? items.length
+    itemCount ?? items.length,
+    
   );
 
   if (etims) {
@@ -640,28 +642,28 @@ y -= 2;
 
   doc.text(
     "QTY",
-    39,
+    45,
     y,
     { align: "right" }
   );
 
   doc.text(
     "PRICE",
-    49,
+    60,
     y,
     { align: "right" }
   );
-
+/*
    doc.text(
     etims ? "TAXABLE" : "DISCOUNT",
     64,
     y,
     { align: "right" }
-  );
+  );*/
 
   doc.text(
     "TOTAL",
-    RIGHT,
+    75,
     y,
     { align: "right" }
   );
@@ -775,28 +777,29 @@ y -= 2;
 
     doc.text(
       quantity.toFixed(2),
-      39,
+      45,
       y,
       { align: "right" }
     );
 
     doc.text(
       money(unitPrice),
-      49,
+      60,
       y,
       { align: "right" }
     );
 
+    /*
     doc.text(
       money(etims ? taxableAmount : discount),
       64,
       y,
       { align: "right" }
-    );
+    );*/
 
       doc.text(
       money(amount),
-      RIGHT,
+      75,
       y,
       { align: "right" }
     );
@@ -828,7 +831,7 @@ y -= 2;
 
     drawLeftTotal(
       "Subtotal",
-      total || items[0]?.bulkTotal + totalDiscount || items[0].total + totalDiscount,
+      items.reduce((sum, item) => item.total + sum, 0) + totalDiscount || total || items[0].total + totalDiscount,
       true
     );
 
@@ -927,10 +930,8 @@ y -= 2;
    */
 
   drawLeftTotal(
-    etims
-      ? "Total To Pay"
-      : "Total To Pay",
-    (total || items[0]?.bulkTotal || items[0].total),
+    "Total To Pay",
+    (items.reduce((sum, item) => item.total + sum, 0) || items[0]?.bulkTotal || items[0].total),
     true
   );
 
