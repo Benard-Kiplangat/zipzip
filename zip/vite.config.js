@@ -31,6 +31,33 @@ export default defineConfig({
             return 'sanitize-vendor';
           }
 
+          if (
+            id.includes('/node_modules/react/') ||
+            id.includes('/node_modules/react-dom/') ||
+            id.includes('/node_modules/scheduler/')
+          ) {
+            return 'react-vendor';
+          }
+
+          if (
+            id.includes('/node_modules/chart.js/') ||
+            id.includes('/node_modules/react-chartjs-2/')
+          ) {
+            return 'chart-vendor';
+          }
+
+          if (
+            id.includes('/node_modules/react-router/') ||
+            id.includes('/node_modules/react-router-dom/') ||
+            id.includes('/node_modules/@remix-run/')
+          ) {
+            return 'router-vendor';
+          }
+
+          if (id.includes('/node_modules/@capacitor/')) {
+            return 'capacitor-vendor';
+          }
+
           if (id.includes('workbox') || id.includes('vite-plugin-pwa')) {
             return 'pwa-vendor';
           }

@@ -1,149 +1,206 @@
 import { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite';
-import { Capacitor } from '@capacitor/core';
 
-let sqliteConn = null;
-let db = null;
+const DATABASE_NAME = 'bosco';
+let sqliteConnection;
+let databasePromise;
 
 async function getConnection() {
-  if (db) return db;
-  sqliteConn = new SQLiteConnection(CapacitorSQLite);
-  const isConn = (await sqliteConn.isConnection("bosco", false)).result;
-  if (isConn) {
-    db = await sqliteConn.retrieveConnection("bosco", false);
-  } else {
-    db = await sqliteConn.createConnection("bosco", false, "no-encryption", 1, false);
-  }
-  await db.open();
+  if (!databasePromise) {
+    databasePromise = (async () => {
+      sqliteConnection = new SQLiteConnection(CapacitorSQLite);
+      const { result: connectionExists } = await sqliteConnection.isConnection(
+        DATABASE_NAME,
+        false,
+      );
+      const connection = connectionExists
+        ? await sqliteConnection.retrieveConnection(DATABASE_NAME, false)
+        : await sqliteConnection.createConnection(
+            DATABASE_NAME,
+            false,
+            'no-encryption',
+            1,
+            false,
+          );
 
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS docs (
-      id TEXT PRIMARY KEY,
-      type TEXT,
-      body TEXT NOT NULL,
-      createdAt TEXT,
-      updatedAt TEXT
-    );
-    CREATE INDEX IF NOT EXISTS docs_type_idx ON docs(type);
-    CREATE INDEX IF NOT EXISTS docs_updated_idx ON docs(updatedAt);
-  `);
-  return db;
+      await connection.open();
+      await connection.execute(`
+        CREATE TABLE IF NOT EXISTS docs (
+          id TEXT PRIMARY KEY,
+          type TEXT,
+          body TEXT NOT NULL,
+          createdAt TEXT,
+          updatedAt TEXT
+        );
+      `);
+      await connection.execute(
+        'CREATE INDEX IF NOT EXISTS docs_type_idx ON docs(type);',
+      );
+      await connection.execute(
+        'CREATE INDEX IF NOT EXISTS docs_updated_idx ON docs(updatedAt);',
+      );
+      return connection;
+    })().catch((error) => {
+      databasePromise = null;
+      throw error;
+    });
+  }
+  return databasePromise;
 }
 
-const normalizeDoc = (doc) => {
-  const normalized = {...doc };
-  normalized._id = normalized._id || `doc:${Date.now()}:${Math.floor(Math.random() * 100000)}`;
-  normalized.createdAt = normalized.createdAt || new Date().toISOString();
-  normalized.updatedAt = new Date().toISOString(); // always update on put
-  return normalized;
-};
+function normalizeDoc(doc) {
+  const now = new Date().toISOString();
+  return {
+    ...doc,
+    _id: doc._id || `doc:${Date.now()}:${Math.floor(Math.random() * 100000)}`,
+    createdAt: doc.createdAt || now,
+    updatedAt: now,
+  };
+}
 
-const parseBody = (body) => {
-  try { return JSON.parse(body); } catch { return null; }
-};
+function parseBody(body) {
+  return JSON.parse(body);
+}
+
+function matchesCondition(value, condition) {
+  if (
+    condition === null ||
+    typeof condition !== 'object' ||
+    Array.isArray(condition)
+  ) {
+    return value === condition;
+  }
+
+  return Object.entries(condition).every(([operator, expected]) => {
+    switch (operator) {
+      case '$eq':
+        return value === expected;
+      case '$ne':
+        return value !== expected;
+      case '$gt':
+        return value > expected;
+      case '$gte':
+        return value >= expected;
+      case '$lt':
+        return value < expected;
+      case '$lte':
+        return value <= expected;
+      default:
+        return false;
+    }
+  });
+}
 
 export function createSqliteDbService() {
   const allDocs = async (options = {}) => {
-    const db = await getConnection();
-    const includeDocs = Boolean(options.include_docs);
-    const startKey = typeof options.startkey === 'string'? options.startkey : null;
-    const endKey = typeof options.endkey === 'string'? options.endkey : null;
-    const limit = Number.isInteger(options.limit)? options.limit : null;
-
-    let query = 'SELECT id, type, body, createdAt, updatedAt FROM docs';
-    const clauses = [];
-    const params = [];
-
-    if (startKey && endKey) {
-      clauses.push('id >=? AND id <=?');
-      params.push(startKey, endKey);
-    } else if (startKey) {
-      clauses.push('id >=?');
-      params.push(startKey);
-    } else if (endKey) {
-      clauses.push('id <=?');
-      params.push(endKey);
+    const database = await getConnection();
+    const conditions = [];
+    const values = [];
+    if (typeof options.startkey === 'string') {
+      conditions.push('id >= ?');
+      values.push(options.startkey);
+    }
+    if (typeof options.endkey === 'string') {
+      conditions.push('id <= ?');
+      values.push(options.endkey);
     }
 
-    if (clauses.length) query += ` WHERE ${clauses.join(' AND ')}`;
-    query += ' ORDER BY id ASC';
-    if (limit!== null) {
-      query += ' LIMIT?';
-      params.push(limit);
+    let statement = 'SELECT id, type, body FROM docs';
+    if (conditions.length) statement += ` WHERE ${conditions.join(' AND ')}`;
+    statement += ' ORDER BY id ASC';
+    if (Number.isInteger(options.limit) && options.limit >= 0) {
+      statement += ' LIMIT ?';
+      values.push(options.limit);
     }
-    query += ';';
 
-    const ret = await db.query(query, params);
+    const result = await database.query(statement, values);
     return {
-      rows: ret.values.map((row) => {
+      rows: (result.values || []).map((row) => {
         const doc = parseBody(row.body);
-        return includeDocs
-         ? { id: row.id, key: row.id, doc, value: { rev: doc?._rev || '1-restore' } }
-          : { id: row.id, key: row.id, value: { rev: doc?._rev || '1-restore' } };
+        const entry = {
+          id: row.id,
+          key: row.id,
+          value: { rev: doc._rev || '1-restore' },
+        };
+        if (options.include_docs) entry.doc = doc;
+        return entry;
       }),
     };
   };
 
   const get = async (id) => {
-    const db = await getConnection();
-    const ret = await db.query('SELECT body FROM docs WHERE id =?;', [id]);
-    if (!ret.values.length) { const e = new Error('missing'); e.status = 404; throw e; }
-    const doc = parseBody(ret.values[0].body);
-    if (!doc) { const e = new Error('missing'); e.status = 404; throw e; }
-    return doc;
+    const database = await getConnection();
+    const result = await database.query(
+      'SELECT body FROM docs WHERE id = ?;',
+      [id],
+    );
+    if (!result.values?.length) {
+      const error = new Error('missing');
+      error.status = 404;
+      throw error;
+    }
+    return parseBody(result.values[0].body);
   };
 
   const put = async (doc) => {
-    const db = await getConnection();
+    const database = await getConnection();
     const normalized = normalizeDoc(doc);
-    const serialized = JSON.stringify(normalized);
-    await db.run(`
-      INSERT INTO docs (id, type, body, createdAt, updatedAt)
-      VALUES (?,?,?,?,?)
-      ON CONFLICT(id) DO UPDATE SET type=excluded.type, body=excluded.body, updatedAt=excluded.updatedAt;
-    `, [normalized._id, normalized.type || 'unknown', serialized, normalized.createdAt, normalized.updatedAt]);
-    return { ok: true, id: normalized._id, rev: normalized._rev || '1-restore' };
+    await database.run(
+      `INSERT INTO docs (id, type, body, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         type = excluded.type,
+         body = excluded.body,
+         updatedAt = excluded.updatedAt;`,
+      [
+        normalized._id,
+        normalized.type || 'unknown',
+        JSON.stringify(normalized),
+        normalized.createdAt,
+        normalized.updatedAt,
+      ],
+    );
+    return {
+      ok: true,
+      id: normalized._id,
+      rev: normalized._rev || '1-restore',
+    };
   };
 
   const remove = async (doc) => {
-    const db = await getConnection();
-    await db.run('DELETE FROM docs WHERE id =?;', [doc._id]);
+    const database = await getConnection();
+    await database.run('DELETE FROM docs WHERE id = ?;', [doc._id]);
     return { ok: true, id: doc._id, rev: doc._rev || '1-restore' };
   };
 
-  const resetDb = async () => {
-    const db = await getConnection();
-    await db.execute('DELETE FROM docs;');
+  const find = async ({ selector = {}, limit } = {}) => {
+    const result = await allDocs({ include_docs: true });
+    const docs = result.rows
+      .map((row) => row.doc)
+      .filter((doc) =>
+        Object.entries(selector).every(([field, condition]) =>
+          matchesCondition(doc[field], condition),
+        ),
+      );
+    return {
+      docs:
+        Number.isInteger(limit) && limit >= 0 ? docs.slice(0, limit) : docs,
+    };
+  };
+
+  const clear = async () => {
+    const database = await getConnection();
+    await database.run('DELETE FROM docs;');
     return true;
   };
 
-  const destroy = async () => {
-    const db = await getConnection();
-    await db.execute('DELETE FROM docs;');
-    return true;
+  return {
+    allDocs,
+    get,
+    put,
+    remove,
+    find,
+    createIndex: async () => ({ result: 'created' }),
+    destroy: clear,
+    resetDb: clear,
   };
-
-  // For backup merge on Android, backup is a JSON array exported via createBackup
-  const mergeBackup = async (backupRows) => {
-    const db = await getConnection();
-    let inserted=0, updated=0, skipped=0;
-    for (const row of backupRows) {
-      const localRet = await db.query('SELECT updatedAt FROM docs WHERE id =?;', [row.id]);
-      if (!localRet.values.length) {
-        await db.run('INSERT INTO docs (id,type,body,createdAt,updatedAt) VALUES (?,?,?,?,?);',
-          [row.id, row.type, row.body, row.createdAt, row.updatedAt]);
-        inserted++;
-      } else {
-        const backupTime = new Date(row.updatedAt||0).getTime();
-        const localTime = new Date(localRet.values[0].updatedAt||0).getTime();
-        if (backupTime > localTime) {
-          await db.run('INSERT OR REPLACE INTO docs (id,type,body,createdAt,updatedAt) VALUES (?,?,?,?,?);',
-            [row.id, row.type, row.body, row.createdAt, row.updatedAt]);
-          updated++;
-        } else skipped++;
-      }
-    }
-    return { inserted, updated, skipped, total: backupRows.length };
-  };
-
-  return { allDocs, get, put, remove, destroy, resetDb, mergeBackup };
 }

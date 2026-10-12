@@ -7,6 +7,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build --outDir \"C:\\Users\\Ben\\Documents\\imara-autospares\\pos\"",
+    "build:android:web": "vite build --outDir dist",
+    "build:android": "npm run build:android:web && npx cap sync android",
+    "android:debug": "npm run build:android && cd android && gradlew.bat assembleDebug",
     "preview": "vite preview",
     "electron": "electron .",
     "dist": "electron-builder",
@@ -14,11 +17,13 @@
     "start:electron": "electron ."
   },
   "dependencies": {
+    "@capacitor-community/sqlite": "^7.0.0",
     "@capacitor/android": "^7.2.0",
     "@capacitor/cli": "^7.2.0",
     "@capacitor/core": "^7.2.0",
     "@vitejs/plugin-react": "^4.4.1",
     "better-sqlite3": "^13.0.2",
+    "chart.js": "^4.5.1",
     "chartjs": "^0.3.24",
     "events": "^3.3.0",
     "express": "^5.2.1",

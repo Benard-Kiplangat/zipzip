@@ -1,6 +1,9 @@
 import PouchDB from "pouchdb-browser";
+import { Capacitor } from "@capacitor/core";
+import { createSqliteDbService } from "./sqliteDb.capacitor";
 
 const electronApi = typeof window !== "undefined" ? window.electronAPI : null;
+const isCapacitorNative = Capacitor.isNativePlatform();
 
 const createElectronDb = () => ({
   allDocs: (options = {}) => electronApi?.allDocs?.(options) ?? Promise.resolve({ rows: [] }),
@@ -12,10 +15,14 @@ const createElectronDb = () => ({
   find: (options) => electronApi?.find?.(options) ?? Promise.resolve({ docs: [] }),
 });
 
-let db = electronApi ? createElectronDb() : new PouchDB("posdb");
+let db = electronApi
+  ? createElectronDb()
+  : isCapacitorNative
+    ? createSqliteDbService()
+    : new PouchDB("posdb");
 
 export async function initDbIndexes() {
-  if (electronApi) return;
+  if (electronApi || isCapacitorNative) return;
   try {
     if (typeof db.createIndex === "function") {
       await Promise.all([
@@ -36,6 +43,9 @@ initDbIndexes().catch(() => {});
 export function resetDb() {
   if (electronApi) {
     return electronApi.resetDb?.() ?? Promise.resolve(db);
+  }
+  if (isCapacitorNative) {
+    return db.resetDb();
   }
 
   return db
