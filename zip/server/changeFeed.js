@@ -1,44 +1,21 @@
-const fs = require("fs");
-const path = require("path");
-
 const FEED_VERSION = 1;
 const RETENTION_MS = 24 * 60 * 60 * 1000;
 const MAX_BATCH_SIZE = 100;
 
 function createChangeFeedService(syncDbRoot) {
-  const fileFor = (businessCode) =>
-    path.join(syncDbRoot, businessCode, "change-feed.json");
+  const feeds = new Map();
 
   const readFeed = (businessCode) => {
-    const filePath = fileFor(businessCode);
-    if (!fs.existsSync(filePath)) {
-      return {
+    if (!feeds.has(businessCode)) {
+      feeds.set(businessCode, {
         version: FEED_VERSION,
         lastSeq: 0,
         purgedThrough: 0,
         lastPurgeDay: "",
         changes: [],
-      };
+      });
     }
-
-    const feed = JSON.parse(fs.readFileSync(filePath, "utf8"));
-    if (
-      feed.version !== FEED_VERSION ||
-      !Number.isSafeInteger(feed.lastSeq) ||
-      !Number.isSafeInteger(feed.purgedThrough) ||
-      !Array.isArray(feed.changes)
-    ) {
-      throw new Error(`Invalid change-feed file for business ${businessCode}.`);
-    }
-    return feed;
-  };
-
-  const writeFeed = (businessCode, feed) => {
-    const filePath = fileFor(businessCode);
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    const temporaryPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-    fs.writeFileSync(temporaryPath, JSON.stringify(feed), "utf8");
-    fs.renameSync(temporaryPath, filePath);
+    return feeds.get(businessCode);
   };
 
   const purgeExpired = (feed, now = Date.now()) => {
@@ -59,8 +36,7 @@ function createChangeFeedService(syncDbRoot) {
 
   const getChanges = (businessCode, { since, limit, now } = {}) => {
     const feed = readFeed(businessCode);
-    const purged = purgeExpired(feed, now);
-    if (purged) writeFeed(businessCode, feed);
+    purgeExpired(feed, now);
 
     if (since === "latest") {
       return {
@@ -68,6 +44,7 @@ function createChangeFeedService(syncDbRoot) {
         nextCursor: feed.lastSeq,
         latestSeq: feed.lastSeq,
         oldestSeq: feed.changes[0]?.seq ?? feed.lastSeq + 1,
+        purgedThrough: feed.purgedThrough,
       };
     }
 
@@ -100,6 +77,7 @@ function createChangeFeedService(syncDbRoot) {
         : feed.lastSeq,
       latestSeq: feed.lastSeq,
       oldestSeq: feed.changes[0]?.seq ?? feed.lastSeq + 1,
+      purgedThrough: feed.purgedThrough,
     };
   };
 
@@ -170,7 +148,6 @@ function createChangeFeedService(syncDbRoot) {
       accepted += 1;
     }
 
-    writeFeed(businessCode, feed);
     return { accepted, latestSeq: feed.lastSeq };
   };
 

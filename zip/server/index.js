@@ -95,7 +95,7 @@ for (const businessCode of businessCodes) {
   app.post(
     `/${businessCode}/sync/changes`,
     requireSyncApiKey,
-    express.json({ limit: "10mb" }),
+    express.json({ limit: "50mb" }),
     (req, res) => {
       try {
         res.json(changeFeed.appendChanges(businessCode, req.body));
