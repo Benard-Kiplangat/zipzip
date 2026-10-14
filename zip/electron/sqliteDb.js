@@ -237,7 +237,7 @@ function createSqliteDbService(appPath) {
     } catch (error) {
       if (error.status !== 404) throw error;
     }
-    if (local && compareSyncDocs(local, doc) > 0) return false;
+    if (local && compareSyncDocs(local, doc) >= 0) return false;
     if (doc._deleted) {
       sqlite.prepare('DELETE FROM docs WHERE id = ?').run(doc._id);
       return true;

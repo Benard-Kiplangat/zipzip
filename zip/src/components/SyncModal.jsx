@@ -219,8 +219,7 @@ export default function SyncModal({ isOpen, onClose }) {
             />
             <p className="text-[11px] text-slate-400 mt-1">
               This device is configured for business code <strong>{businessCode || "not set"}</strong>.
-              Its database URL must use /{businessCode || "business-code"}/db/posdb.
-              Devices for the same business must use the same business code and URL.
+              Use the server URL for this business. Devices sharing a business must use the same business code and URL.
             </p>
           </div>
 
@@ -235,7 +234,7 @@ export default function SyncModal({ isOpen, onClose }) {
               onChange={(e) => setStartDate(e.target.value)}
             />
             <p className="text-[11px] text-slate-400 mt-1">
-              Only records created or modified on or after this date will sync. Changes are kept on the server for 24 hours and checked every 30 seconds. Keep devices online regularly or import a fresh export if one misses the retention window.
+              Only records created or modified on or after this date will sync. The server keeps changes for 24 hours; devices offline longer must be refreshed using export/import.
             </p>
           </div>
 
@@ -267,7 +266,7 @@ export default function SyncModal({ isOpen, onClose }) {
             <div>
               <div className="text-xs font-bold text-slate-900">Enable Local-First Sync</div>
               <div className="text-[11px] text-slate-500">
-                Work from this device's local database and sync changes with other devices.
+                Sync only changes through the JSON feed every 30 seconds and when this device reconnects.
               </div>
             </div>
           </label>
@@ -287,7 +286,7 @@ export default function SyncModal({ isOpen, onClose }) {
           {!usesPouchDb && !enabled && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2">
               <p className="text-[11px] text-amber-900">
-                Use this only when this device already has the same imported baseline as the server. It starts this device at the current feed position and skips its existing queued changes.
+                On a device that already has the same imported baseline as the server, acknowledge it to begin syncing only later changes.
               </p>
               <button
                 type="button"
@@ -295,7 +294,7 @@ export default function SyncModal({ isOpen, onClose }) {
                 disabled={baselineSetup || testing}
                 className="w-full bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-bold py-2.5 px-3 rounded-xl transition-colors"
               >
-                {baselineSetup ? "Acknowledging imported data..." : "Use Imported Baseline"}
+                {baselineSetup ? "Acknowledging imported data..." : "Use Imported Baseline & Start Sync"}
               </button>
             </div>
           )}

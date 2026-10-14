@@ -1,6 +1,6 @@
 # Imara Autospares POS — Multi-Device Online Sync Server
 
-This is a lightweight Node.js Express server. Each business code has its own separate PouchDB database and JSON change-feed file.
+This is a lightweight Node.js Express sync server powered by `express-pouchdb`. The POS continues to read and write its local database; this server stores a replica for other devices and apps to synchronize against. Each business code has its own separate PouchDB data directory and sync endpoint.
 
 ## Deploy on Render
 
@@ -47,12 +47,11 @@ Other devices on the shop Wi-Fi enter the endpoint for their business, such as `
 ## Sync behavior and connecting another app
 
 - Reads and writes in the POS continue to use the device's local database. The sync server is not used as a live database for checkout or other operations.
-- All clients poll `/<business-code>/sync/changes` every 30 seconds and upload/download JSON document changes.
-- The server retains the latest change per document for 24 hours. Daily cleanup occurs when the feed is queried or appended. Devices resume from a persisted server cursor. If the cursor predates the retained window, the server returns HTTP 410; import a current export and use **Use Imported Baseline** before resuming sync.
-- The device's saved **Sync changes from** date filters what it uploads. It defaults to the time sync settings are first opened and can be changed in those settings. The import/export backup format and its merge behavior are separate from sync.
-- The JSON feed is the sync transport. The PouchDB database endpoint remains available for existing integrations, but app clients no longer replicate through it.
-- Concurrent SQLite edits to the same record use `updatedAt` as a last-write-wins timestamp. Prefer application-level conflict handling for data that must merge (for example, stock counts); sync is not a substitute for that.
-- The server exposes the JSON change feed at `/<business-code>/sync/changes` and the PouchDB/CouchDB API at `/<business-code>/db/posdb`. Feed requests use HTTP Basic authentication (username `sync`, password `SYNC_API_KEY`) or the `x-sync-key` header. Business codes not listed in `SYNC_BUSINESS_CODES` are not mounted. Requests to configured sync routes are rejected until `SYNC_API_KEY` is configured; `/` remains a health-check endpoint.
+- Browser/PWA, Electron, and Android clients exchange batched JSON change records through `/<business-code>/sync/changes`. Clients poll every 30 seconds and immediately when coming online or returning to the foreground.
+- The feed is persisted as `change-feed.json` under each business data directory and retains a rolling 24-hour change window. Devices persist an independent local upload sequence and remote cursor. If a device's cursor has expired, it must be brought current using the normal export/import flow before sync can resume.
+- Each device uploads only records created or modified on/after its saved **Sync changes from** date. That date defaults to when sync is first configured and can be changed in Sync settings. Import/export remains unchanged and is the supported way to establish or refresh a baseline.
+- Concurrent edits to the same record use `updatedAt` as a last-write-wins timestamp. Prefer application-level conflict handling for data that must merge (for example, stock counts); sync is not a substitute for that.
+- The server still exposes the PouchDB/CouchDB API at `/<business-code>/db/posdb` for compatibility. The POS JSON change feed uses the same HTTP Basic authentication (username `sync`, password `SYNC_API_KEY`). Business codes not listed in `SYNC_BUSINESS_CODES` are not mounted. Requests to configured sync routes are rejected until `SYNC_API_KEY` is configured; `/` remains a health-check endpoint.
 - Use HTTPS when syncing over the public internet. The shared key grants access to all data in this sync database, so keep it private and rotate it if exposed.
 - `SYNC_API_KEY` is shared across configured business routes, so every authorized device can technically access each configured business endpoint. Use only with trusted devices. Separate per-business credentials would require a future server/client change.
 - The server stores PouchDB files under `server/data/<business-code>` by default. Set `SYNC_DB_DIR` to a persistent volume mount point for hosted deployments.

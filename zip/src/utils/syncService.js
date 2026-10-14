@@ -1,3 +1,4 @@
+import PouchDB from "pouchdb-browser";
 import { db, usesPouchDb } from "../db";
 
 const SYNC_URL_KEY = "bosco_remote_sync_url";
@@ -10,7 +11,6 @@ const INITIAL_RETRY_DELAY_MS = 1 * 1000;
 const MAX_RETRY_DELAY_MS = 60 * 1000;
 const REQUEST_TIMEOUT_MS = 30 * 1000;
 const SYNC_BATCH_SIZE = 100;
-const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 const FEED_VERSION = 1;
 
 let syncTimer = null;
@@ -216,6 +216,7 @@ async function runSync(endpoint, targetUrl, apiKey, config, thisGeneration) {
     } else if (state.syncStartDate !== config.startDate) {
       if (!usesPouchDb) await db.seedSyncChanges(config.startDate);
       state.syncStartDate = config.startDate;
+      if (usesPouchDb) state.localSequence = 0;
       await db.setSyncState(targetUrl, state);
     }
 
@@ -243,14 +244,6 @@ async function runSync(endpoint, targetUrl, apiKey, config, thisGeneration) {
         errorMessage:
           error.message ||
           "This device missed the server's 24-hour sync window. Import a current export before reconnecting.",
-        progressMessage: "",
-      });
-      return;
-    }
-    if (error.status === 400 || error.status === 413) {
-      updateStatus({
-        status: "error",
-        errorMessage: error.message || "The sync server rejected this change batch.",
         progressMessage: "",
       });
       return;
@@ -321,28 +314,10 @@ async function uploadLocalChanges(endpoint, targetUrl, apiKey, config, state, th
 }
 
 async function appendChanges(endpoint, apiKey, deviceId, changes) {
-  let remaining = changes;
-  while (remaining.length) {
-    let count = remaining.length;
-    let body;
-    while (count > 0) {
-      body = JSON.stringify({
-        deviceId,
-        changes: remaining.slice(0, count),
-      });
-      if (new TextEncoder().encode(body).byteLength <= MAX_UPLOAD_BYTES) break;
-      count = Math.floor(count / 2);
-    }
-    if (!count) {
-      const error = new Error(
-        `Sync record ${remaining[0].id} exceeds the maximum upload size.`,
-      );
-      error.status = 413;
-      throw error;
-    }
-    await requestJson(endpoint, apiKey, { method: "POST", body });
-    remaining = remaining.slice(count);
-  }
+  await requestJson(endpoint, apiKey, {
+    method: "POST",
+    body: JSON.stringify({ deviceId, changes }),
+  });
 }
 
 async function downloadRemoteChanges(endpoint, targetUrl, apiKey, config, state, thisGeneration) {
@@ -356,7 +331,7 @@ async function downloadRemoteChanges(endpoint, targetUrl, apiKey, config, state,
       apiKey,
     );
 
-    const appliedDocs = [];
+    const changedDocs = [];
     for (const change of page.changes || []) {
       if (thisGeneration !== generation) return;
       if (change.deviceId === config.deviceId) continue;
@@ -365,22 +340,13 @@ async function downloadRemoteChanges(endpoint, targetUrl, apiKey, config, state,
         status: "syncing",
         progressMessage: `Applying remote change ${change.id}...`,
       });
-      if (await db.applyRemoteSyncDoc(change.doc)) {
-        appliedDocs.push(change.doc);
-      }
+      const applied = await db.applyRemoteSyncDoc(change.doc);
+      if (applied) changedDocs.push(change.doc);
     }
     state.remoteCursor = page.nextCursor;
     await db.setSyncState(targetUrl, state);
-    if (appliedDocs.length) dispatchDbChanged(appliedDocs);
+    if (changedDocs.length) dispatchDbChanged(changedDocs);
     if (!(page.changes || []).length || page.changes.length < SYNC_BATCH_SIZE) return;
-  }
-}
-
-function dispatchDbChanged(docs) {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(
-      new CustomEvent("bosco:db-changed", { detail: { docs } }),
-    );
   }
 }
 
@@ -399,6 +365,11 @@ function stripRevision(doc) {
   delete copy._revisions;
   delete copy._conflicts;
   return copy;
+}
+
+function dispatchDbChanged(docs) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("bosco:db-changed", { detail: { docs } }));
 }
 
 export async function testConnection(remoteUrl, apiKey) {

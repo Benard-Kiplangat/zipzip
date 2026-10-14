@@ -84,11 +84,20 @@ function wrapPouchDbWrites(database) {
   };
 
   database.put = async (doc, ...args) => {
-    const previous = doc._id ? await getCurrentDoc(doc._id) : null;
-    return originalPut(
-      { ...doc, updatedAt: nextUpdatedAt(previous?.updatedAt) },
-      ...args,
-    );
+    let previous = doc._id ? await getCurrentDoc(doc._id) : null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const nextDoc = {
+        ...doc,
+        ...(previous?._rev ? { _rev: previous._rev } : {}),
+        updatedAt: nextUpdatedAt(previous?.updatedAt),
+      };
+      try {
+        return await originalPut(nextDoc, ...args);
+      } catch (error) {
+        if (error.status !== 409 || attempt === 2 || !doc._id) throw error;
+        previous = await getCurrentDoc(doc._id);
+      }
+    }
   };
 
   database.remove = async (doc, ...args) => {
@@ -120,27 +129,32 @@ function wrapPouchDbWrites(database) {
     });
 
   database.applyRemoteSyncDoc = async (incoming) => {
-    const local = await getCurrentDoc(incoming._id);
-    if (local && compareSyncDocs(local, incoming) > 0) return false;
-    if (incoming._deleted && !local) return true;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const local = await getCurrentDoc(incoming._id);
+      const comparison = local ? compareSyncDocs(local, incoming) : -1;
+      if (local && comparison >= 0) return false;
+      if (incoming._deleted && !local) return true;
 
-    const doc = { ...incoming };
-    delete doc._rev;
-    delete doc._revisions;
-    delete doc._conflicts;
-    if (local?._rev) doc._rev = local._rev;
-    try {
-      await originalPut(doc);
-      return true;
-    } catch (error) {
-      if (error.status !== 409) throw error;
-      return false;
+      const doc = { ...incoming };
+      delete doc._rev;
+      delete doc._revisions;
+      delete doc._conflicts;
+      if (local?._rev) doc._rev = local._rev;
+      try {
+        await originalPut(doc);
+        return true;
+      } catch (error) {
+        if (error.status !== 409 || attempt === 2) throw error;
+      }
     }
+    return false;
   };
 
   database.getSyncState = async (key) => {
     try {
-      return await originalGet(`_local/bosco-sync-${encodeURIComponent(key)}`);
+      const stored = await originalGet(`_local/bosco-sync-${encodeURIComponent(key)}`);
+      const { _id, _rev, _deleted, ...state } = stored;
+      return state;
     } catch (error) {
       if (error.status === 404) return null;
       throw error;
@@ -149,12 +163,23 @@ function wrapPouchDbWrites(database) {
 
   database.setSyncState = async (key, state) => {
     const id = `_local/bosco-sync-${encodeURIComponent(key)}`;
-    const previous = await database.getSyncState(key);
-    await originalPut({
-      _id: id,
-      ...(previous?._rev ? { _rev: previous._rev } : {}),
-      ...state,
-    });
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const previous = await database.getSyncState(key);
+      const nextState = { ...state };
+      delete nextState._id;
+      delete nextState._rev;
+      delete nextState._deleted;
+      try {
+        await originalPut({
+          ...nextState,
+          _id: id,
+          ...(previous?._rev ? { _rev: previous._rev } : {}),
+        });
+        return;
+      } catch (error) {
+        if (error.status !== 409 || attempt === 2) throw error;
+      }
+    }
   };
 
   return database;

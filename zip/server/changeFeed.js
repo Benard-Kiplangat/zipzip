@@ -35,6 +35,7 @@ function createChangeFeedService(syncDbRoot) {
 
   const writeFeed = (businessCode, feed) => {
     const filePath = fileFor(businessCode);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
     const temporaryPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
     fs.writeFileSync(temporaryPath, JSON.stringify(feed), "utf8");
     fs.renameSync(temporaryPath, filePath);
@@ -85,15 +86,9 @@ function createChangeFeedService(syncDbRoot) {
       throw error;
     }
 
-    const requestedLimit = Number(limit);
     const pageSize = Math.max(
       1,
-      Math.min(
-        Number.isFinite(requestedLimit) && requestedLimit > 0
-          ? Math.floor(requestedLimit)
-          : MAX_BATCH_SIZE,
-        MAX_BATCH_SIZE,
-      ),
+      Math.min(Number(limit) || MAX_BATCH_SIZE, MAX_BATCH_SIZE),
     );
     const changes = feed.changes
       .filter((change) => change.seq > cursor)
@@ -170,8 +165,6 @@ function createChangeFeedService(syncDbRoot) {
         id: change.id,
         doc: change.doc,
       };
-      const priorIndex = feed.changes.findIndex((item) => item.id === change.id);
-      if (priorIndex >= 0) feed.changes.splice(priorIndex, 1);
       feed.changes.push(event);
       latestById.set(change.id, change.doc);
       accepted += 1;

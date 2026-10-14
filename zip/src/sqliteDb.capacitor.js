@@ -317,7 +317,7 @@ export function createSqliteDbService() {
       if (error.status === 404) return null;
       throw error;
     });
-    if (local && compareSyncDocs(local, doc) > 0) return false;
+    if (local && compareSyncDocs(local, doc) >= 0) return false;
     await upsertWithoutQueue(doc);
     return true;
   };
