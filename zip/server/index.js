@@ -5,6 +5,7 @@ const expressPouchDB = require("express-pouchdb");
 const { timingSafeEqual } = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const { createChangeFeedService } = require("./changeFeed");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -26,6 +27,7 @@ if (!businessCodes.length || businessCodes.some((code) => !/^[a-z0-9][a-z0-9-]{0
 app.use(cors({ origin: true, credentials: true }));
 
 const syncApiKey = process.env.SYNC_API_KEY || "";
+const changeFeed = createChangeFeedService(syncDbRoot);
 const requireSyncApiKey = (req, res, next) => {
   if (!syncApiKey) {
     return res.status(503).json({ error: "Sync server key is not configured." });
@@ -75,6 +77,36 @@ for (const businessCode of businessCodes) {
       next();
     });
   });
+  app.get(`/${businessCode}/sync/changes`, requireSyncApiKey, (req, res) => {
+    try {
+      res.json(
+        changeFeed.getChanges(businessCode, {
+          since: req.query.since,
+          limit: req.query.limit,
+        }),
+      );
+    } catch (error) {
+      res.status(error.status || 500).json({
+        error: error.code || "sync_feed_error",
+        message: error.message || "Could not read the sync change feed.",
+      });
+    }
+  });
+  app.post(
+    `/${businessCode}/sync/changes`,
+    requireSyncApiKey,
+    express.json({ limit: "10mb" }),
+    (req, res) => {
+      try {
+        res.json(changeFeed.appendChanges(businessCode, req.body));
+      } catch (error) {
+        res.status(error.status || 500).json({
+          error: error.code || "sync_feed_error",
+          message: error.message || "Could not append sync changes.",
+        });
+      }
+    },
+  );
   app.use(
     `/${businessCode}/db`,
     expressPouchDB(BusinessPouchDB, pouchOptions)
