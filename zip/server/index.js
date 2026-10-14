@@ -62,6 +62,19 @@ for (const businessCode of businessCodes) {
   });
 
   app.use(`/${businessCode}/db`, requireSyncApiKey);
+  app.use(`/${businessCode}/db`, (req, res, next) => {
+    if (req.method !== "POST" || !req.path.endsWith("/_changes")) {
+      return next();
+    }
+
+    express.json({ limit: "1mb" })(req, res, (error) => {
+      if (error) return next(error);
+      if (req.body?.selector) {
+        req.query.selector = req.body.selector;
+      }
+      next();
+    });
+  });
   app.use(
     `/${businessCode}/db`,
     expressPouchDB(BusinessPouchDB, pouchOptions)
