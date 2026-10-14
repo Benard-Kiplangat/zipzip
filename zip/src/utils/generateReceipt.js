@@ -1,6 +1,9 @@
 import jsPDF from "jspdf";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 
-export const generateETIMSReceipt = (receipt) => {
+const ReceiptPrinter = registerPlugin("ReceiptPrinter");
+
+export const generateETIMSReceipt = async (receipt) => {
   const {
     // -------------------------------------------------------
     // MODE
@@ -1180,12 +1183,20 @@ y -= 2;
    * =========================================================
    */
 
-  const pdfBlobUrl = doc.output('bloburl');
-  const printWindow = window.open(pdfBlobUrl);
+  if (Capacitor.getPlatform() === "android") {
+    const dataUri = doc.output("datauristring");
+    const base64 = dataUri.slice(dataUri.indexOf(",") + 1);
+    await ReceiptPrinter.printPdf({
+      base64,
+      title: `Receipt ${receiptNumber || invoiceNo || ""}`.trim(),
+    });
+    return;
+  }
 
-if (printWindow) {
-  printWindow.onload = () => {
-    printWindow.print();
-  };
-}
+  const pdfBlobUrl = doc.output("bloburl");
+  const printWindow = window.open(pdfBlobUrl);
+  if (!printWindow) {
+    throw new Error("The browser blocked the receipt window. Allow pop-ups and try again.");
+  }
+  printWindow.onload = () => printWindow.print();
 };

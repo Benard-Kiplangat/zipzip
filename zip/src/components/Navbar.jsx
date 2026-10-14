@@ -86,7 +86,7 @@ export default function Navbar() {
   return (
     <>
       {/* Mobile Top App Bar */}
-      <div className="lg:hidden bg-slate-900 text-white flex items-center justify-between p-4 sticky top-0 z-40 shadow-md">
+      <div className="lg:hidden bg-slate-900 text-white flex items-center justify-between p-4 sticky top-0 z-40 shadow-md pt-8">
         <div className="flex items-center gap-2 font-bold text-lg">
           <span className="p-1.5 bg-blue-700 rounded-lg text-white">🛠️</span>
           <span>{config.businessName}</span>
@@ -111,7 +111,7 @@ export default function Navbar() {
       {/* Mobile Backdrop Overlay */}
       {mobileOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-40 transition-opacity"
+          className="lg:hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-40 transition-opacity pt-8"
           onClick={() => setMobileOpen(false)}
         />
       )}

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import POS from './pages/POS';
 import Stock from './pages/Stock';
@@ -10,7 +10,11 @@ import UserLogin from './components/UserLogin';
 import Navbar from './components/Navbar';
 import { useAuth } from './context/AuthContext';
 import BusinessSettings from './pages/BusinessSettings';
+import { Capacitor } from '@capacitor/core';
+import { saveDatabaseBackup } from './utils/databaseBackup';
 import './index.css';
+
+const DATABASE_BACKUP_INTERVAL_MS = 60 * 60 * 1000;
 
 function RequireAuth({ children }) {
   const { currentUser, loading } = useAuth();
@@ -38,9 +42,55 @@ function AdminRoute({ children }) {
 
 export default function App() {
   const { currentUser } = useAuth();
+  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
+
+  useEffect(() => {
+    const updateViewportWidth = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', updateViewportWidth);
+    return () => window.removeEventListener('resize', updateViewportWidth);
+  }, []);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return undefined;
+
+    let lastBackupAt = Date.now();
+    let backupInProgress = false;
+    const createBackup = async () => {
+      if (backupInProgress) return;
+      backupInProgress = true;
+      try {
+        await saveDatabaseBackup();
+        lastBackupAt = Date.now();
+      } catch (error) {
+        console.error('Automatic database backup failed:', error);
+      } finally {
+        backupInProgress = false;
+      }
+    };
+    const checkBackupInterval = () => {
+      if (Date.now() - lastBackupAt >= DATABASE_BACKUP_INTERVAL_MS) {
+        createBackup();
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        createBackup();
+      }
+    };
+
+    const intervalId = window.setInterval(checkBackupInterval, 60 * 1000);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-800 flex flex-col lg:flex-row">
+    <div
+      className="min-h-screen w-full min-w-[600px] bg-slate-100 text-slate-800 flex flex-col lg:flex-row"
+      style={{ zoom: Math.min(1, viewportWidth / 600) }}
+    >
       {currentUser && <Navbar />}
       <main className="flex-1 min-w-0 sm:p-1 p-4 lg:p-8 max-w-7xl mx-auto w-full">
         <Routes>
@@ -58,4 +108,3 @@ export default function App() {
     </div>
   );
 }
-

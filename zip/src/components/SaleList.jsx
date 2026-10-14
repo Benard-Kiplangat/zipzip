@@ -74,13 +74,13 @@ async function getNextInvoiceNumber(prefix) {
   throw new Error(`Could not allocate the next ${prefix} invoice number.`);
 }
 
-function renderLocalReceipt(items, invoiceNo, config) {
+async function renderLocalReceipt(items, invoiceNo, config) {
 
   const total = items.reduce((sum, item) => item.total + sum, 0);
   const totalDiscount = 0 //items.reduce((sum, item) => item.discount + sum, 0);
 
   const customer = getSaleCustomer(items);
-  generateETIMSReceipt({
+  await generateETIMSReceipt({
     ...getShopData(config),
     items,
     totalDiscount,
@@ -142,14 +142,14 @@ async function generateSaleReceipt(items, etimsMode, config) {
 
   if (!etimsMode) {
     const invoiceNo = await getNextInvoiceNumber("RCT");
-    renderLocalReceipt(items, invoiceNo, config);
+    await renderLocalReceipt(items, invoiceNo, config);
     return;
   }
 
   const storedReceipt = await getStoredETIMSReceipt(items);
 
   if (storedReceipt) {
-    generateETIMSReceipt({
+    await generateETIMSReceipt({
       ...getShopData(config),
       etims: true,
       ...storedReceipt.receiptPayload
@@ -224,7 +224,7 @@ async function generateSaleReceipt(items, etimsMode, config) {
 
   await persistETIMSReceipt(items, receiptPayload);
 
-  generateETIMSReceipt({
+  await generateETIMSReceipt({
     ...getShopData(config),
     items,
     etims: true,

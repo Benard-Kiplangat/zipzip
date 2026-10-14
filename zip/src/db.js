@@ -110,7 +110,72 @@ function wrapPouchDbWrites(database) {
     );
   };
 
+  database.getLocalChangesSince = (sequence, limit) =>
+    database.changes({
+      since: sequence,
+      limit,
+      include_docs: true,
+      return_docs: true,
+      style: "all_docs",
+    });
+
+  database.applyRemoteSyncDoc = async (incoming) => {
+    const local = await getCurrentDoc(incoming._id);
+    if (local && compareSyncDocs(local, incoming) > 0) return false;
+    if (incoming._deleted && !local) return true;
+
+    const doc = { ...incoming };
+    delete doc._rev;
+    delete doc._revisions;
+    delete doc._conflicts;
+    if (local?._rev) doc._rev = local._rev;
+    try {
+      await originalPut(doc);
+      return true;
+    } catch (error) {
+      if (error.status !== 409) throw error;
+      return false;
+    }
+  };
+
+  database.getSyncState = async (key) => {
+    try {
+      return await originalGet(`_local/bosco-sync-${encodeURIComponent(key)}`);
+    } catch (error) {
+      if (error.status === 404) return null;
+      throw error;
+    }
+  };
+
+  database.setSyncState = async (key, state) => {
+    const id = `_local/bosco-sync-${encodeURIComponent(key)}`;
+    const previous = await database.getSyncState(key);
+    await originalPut({
+      _id: id,
+      ...(previous?._rev ? { _rev: previous._rev } : {}),
+      ...state,
+    });
+  };
+
   return database;
+}
+
+function compareSyncDocs(left, right) {
+  const leftTime = Date.parse(left?.updatedAt || left?.createdAt || 0) || 0;
+  const rightTime = Date.parse(right?.updatedAt || right?.createdAt || 0) || 0;
+  if (leftTime !== rightTime) return leftTime - rightTime;
+  const normalize = (value) => {
+    if (Array.isArray(value)) return `[${value.map(normalize).join(",")}]`;
+    if (value && typeof value === "object") {
+      const entries = Object.keys(value)
+        .filter((key) => !["_rev", "_revisions", "_conflicts"].includes(key))
+        .sort()
+        .map((key) => `${JSON.stringify(key)}:${normalize(value[key])}`);
+      return `{${entries.join(",")}}`;
+    }
+    return JSON.stringify(value);
+  };
+  return normalize(left).localeCompare(normalize(right));
 }
 
 function nextUpdatedAt(previousUpdatedAt) {

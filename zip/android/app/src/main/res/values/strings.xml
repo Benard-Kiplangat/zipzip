@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">POS Sync</string>
-    <string name="title_activity_main">POS Sync</string>
-    <string name="package_name">com.boscopossync.pos</string>
-    <string name="custom_url_scheme">com.boscopossync.pos</string>
+    <string name="app_name">Bosco Autospares</string>
+    <string name="title_activity_main">Bosco Autospares</string>
+    <string name="package_name">com.boscoautospares.pos</string>
+    <string name="custom_url_scheme">com.boscoautospares.pos</string>
 </resources>

@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.boscopossync.pos',
-  appName: 'POS Sync',
+  appId: 'com.boscoautospares.pos',
+  appName: 'Bosco Autospares',
   webDir: 'dist',
   server: {
     url: 'http://127.0.0.1:8080',
@@ -10,7 +10,11 @@ const config: CapacitorConfig = {
     allowNavigation: ['127.0.0.1'],
   },
   plugins: {
-    CapacitorSQLite: {
+    "StatusBar": {
+      "style": "DARK",
+      "overlaywebview": false
+    },
+    "CapacitorSQLite": {
       iosDatabaseLocation: 'Library/CapacitorDatabase',
       androidIsEncryption: false,
     },

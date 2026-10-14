@@ -385,6 +385,7 @@ export function useSalesData() {
       isCreditPaid: true,
       dwnPayment: item.total,
       bulkDwnPayment: bulkTotal,
+      updatedAt: new Date().toISOString(),
     }));
 
     if (db.bulkDocs) {

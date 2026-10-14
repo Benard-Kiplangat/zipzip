@@ -111,10 +111,14 @@ export default function WeeklySummary({ allSales = [], selectedDate }) {
   return (
     <div className="">
       <section>
-        <Charts rows={rows} selectedDate={selectedDate} period="weekly"/>
+        <div className="w-full overflow-x-auto">
+          <div className="min-w-[900px]">
+          <Charts rows={rows} selectedDate={selectedDate} period="weekly"/>
+          </div>
+        </div>
           <div className="mt-5 space-y-2">
             {rows.map((r, i) => (
-              <div key={i} className={`border p-3 rounded flex justify-between ${r.totalSales === 0 ? 'bg-gray-50 text-gray-400' : 'bg-white'}`}>
+              <div key={i} className={`border p-3 rounded-xl flex justify-between ${r.totalSales === 0 ? 'bg-gray-50 text-gray-400' : 'bg-white'}`}>
                 <div className="font-medium w-24">{r.dayName} <span className="text-xs font-normal">{r.date}</span></div>
                 <div className="text-sm text-right">
                   {r.totalSales === 0

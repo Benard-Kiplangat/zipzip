@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { DEFAULT_APP_CONFIG, useBusinessConfig } from "../config";
 import { useAuth } from "../context/AuthContext";
+import { db } from "../db";
+import { saveDatabaseBackup } from "../utils/databaseBackup";
 import { showToast } from "../utils/toast";
-//import { db } from "../db";
 
 const fieldDefinitions = [
   { name: "businessName", label: "Business Name", placeholder: "" },
@@ -27,8 +29,12 @@ const SEEDLING_DEFAULTS = {
 export default function BusinessSettings() {
   const { currentUser, isAdmin } = useAuth();
   const { config, updateConfig } = useBusinessConfig();
+  const isCapacitorNative = Capacitor.isNativePlatform();
   const [form, setForm] = useState(config);
   const [saving, setSaving] = useState(false);
+  const [backups, setBackups] = useState([]);
+  const [selectedBackup, setSelectedBackup] = useState("");
+  const [backupBusy, setBackupBusy] = useState(false);
   //const [crops, setCrops] = useState([]);
   // const [registeringCropId, setRegisteringCropId] = useState(null);
   // const [registeringAll, setRegisteringAll] = useState(false);
@@ -71,6 +77,28 @@ export default function BusinessSettings() {
     setSuppliers(result.rows.map((row) => row.doc).filter((doc) => doc?.type === "supplier"));
   };
 */
+  const loadBackups = useCallback(async () => {
+    const response = await fetch("/api/backups");
+    if (!response.ok) {
+      throw new Error(`Backup list request failed (${response.status}).`);
+    }
+    const names = await response.json();
+    if (!Array.isArray(names) || names.some((name) => typeof name !== "string")) {
+      throw new Error("The server returned an invalid backup list.");
+    }
+    setBackups(names);
+    setSelectedBackup((current) => (
+      names.includes(current) ? current : names[0] || ""
+    ));
+  }, []);
+
+  useEffect(() => {
+    if (!isCapacitorNative || !currentUser || !isAdmin) return;
+    loadBackups().catch((error) => {
+      showToast(`Could not load backups: ${error.message}`);
+    });
+  }, [currentUser, isAdmin, isCapacitorNative, loadBackups]);
+
   if (!currentUser || !isAdmin) {
     return (
       <div className="p-8 text-center text-rose-600 font-bold">
@@ -101,6 +129,66 @@ export default function BusinessSettings() {
     }
 
     setSaving(false);
+  };
+
+  const createDatabaseBackup = async () => {
+    setBackupBusy(true);
+    try {
+      await saveDatabaseBackup();
+      await loadBackups();
+      showToast("Database backup saved to Android media storage.");
+    } catch (error) {
+      showToast(`Could not create database backup: ${error.message}`);
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const restoreDatabaseBackup = async (backup) => {
+    if (!window.confirm("Merge newer records from this backup? Existing records will not be deleted.")) {
+      return;
+    }
+    setBackupBusy(true);
+    try {
+      const result = await db.mergeBackup(backup);
+      showToast(
+        `Restore complete: ${result.inserted} added, ${result.updated} updated, ${result.skipped} unchanged.`
+      );
+    } catch (error) {
+      showToast(`Could not restore database backup: ${error.message}`);
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const restoreSavedBackup = async () => {
+    if (!selectedBackup) return;
+    try {
+      const response = await fetch(`/api/backups/${encodeURIComponent(selectedBackup)}`);
+      if (!response.ok) {
+        throw new Error(`Could not read the selected backup (${response.status}).`);
+      }
+      await restoreDatabaseBackup(await response.json());
+    } catch (error) {
+      showToast(`Could not restore database backup: ${error.message}`);
+      setBackupBusy(false);
+    }
+  };
+
+  const restoreBackupFile = async (event) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+      showToast("Database backup files must be 50 MB or smaller.");
+      return;
+    }
+    try {
+      await restoreDatabaseBackup(JSON.parse(await file.text()));
+    } catch (error) {
+      showToast(`Could not read database backup: ${error.message}`);
+      setBackupBusy(false);
+    }
   };
 /*
   const registerCrop = async (crop) => {
@@ -627,6 +715,61 @@ export default function BusinessSettings() {
           </button>
           </div>
       </form>
+
+      {isCapacitorNative && (
+        <section className="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 mt-5 space-y-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Database Backup &amp; Restore</h2>
+            <p className="text-sm text-slate-600 mt-1">
+              Backups are kept in <code>Android/media/com.boscopossync.pos/POS/Backups</code>.
+              Restore merges newer records and never deletes existing records.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={createDatabaseBackup}
+              disabled={backupBusy}
+              className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-emerald-700 disabled:opacity-60"
+            >
+              {backupBusy ? "Working..." : "Create backup"}
+            </button>
+            <select
+              value={selectedBackup}
+              onChange={(event) => setSelectedBackup(event.target.value)}
+              disabled={backupBusy || backups.length === 0}
+              className="border border-slate-300 rounded-xl px-3 py-2.5"
+              aria-label="Saved database backups"
+            >
+              {backups.length === 0
+                ? <option value="">No saved backups</option>
+                : backups.map((name) => <option key={name} value={name}>{name}</option>)}
+            </select>
+            <button
+              type="button"
+              onClick={restoreSavedBackup}
+              disabled={backupBusy || !selectedBackup}
+              className="border border-slate-300 text-slate-700 px-4 py-2.5 rounded-xl font-semibold hover:bg-slate-50 disabled:opacity-60"
+            >
+              Restore selected
+            </button>
+            <label className="border border-slate-300 text-slate-700 px-4 py-2.5 rounded-xl font-semibold hover:bg-slate-50 cursor-pointer">
+              Restore from file
+              <input
+                type="file"
+                accept=".json,application/json"
+                onChange={restoreBackupFile}
+                disabled={backupBusy}
+                className="sr-only"
+              />
+            </label>
+          </div>
+          <p className="text-xs text-slate-500">
+            Replace app web files by copying the contents of a new <code>dist</code> build into
+            <code> Android/media/com.boscopossync.pos/POS/www</code>. The APK does not need to be rebuilt.
+          </p>
+        </section>
+      )}
 
       {/* DigiTax Import & Sync Card 
       <section className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl shadow-sm p-5 mt-5">

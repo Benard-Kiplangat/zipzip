@@ -7,6 +7,7 @@ export default function Cart({ cart, onUpdateQty, onUpdatePrice, onRemoveItem, o
   const { canViewProfit } = useAuth();
   const [isCredit, setIsCredit] = useState(false);
   const [customerName, setCustomerName] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
   const [dwnPayment, setDwnPayment] = useState(0);
   const [mpesaProcessing, setMpesaProcessing] = useState(false);
     const [mpesaStatus, setMpesaStatus] = useState(null);
@@ -526,18 +527,30 @@ export default function Cart({ cart, onUpdateQty, onUpdatePrice, onRemoveItem, o
             {/* Customer */}
             <div className="flex gap-2 w-full">
               <div className="space-y-2 pt-1 border-t">
-                {customers.length > 0 && (
-                  <select
+                {customers.length > 5 && (
+                  <input
+                    type="search"
+                    placeholder="Search customers..."
                     className="w-full border p-1.5 rounded text-sm"
-                    value={customerName}
-                    onChange={e => setCustomerName(e.target.value)}
-                  >
-                    <option value="">Select customer (or type below)</option>
-                    {customers.map(c => (
-                      <option key={c._id} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
+                    value={customerSearch}
+                    onChange={e => setCustomerSearch(e.target.value)}
+                  />
                 )}
+                
+                  {customers.length > 0 && (
+                    <select
+                      className="w-full border p-1.5 rounded text-sm"
+                      value={customerName}
+                      onChange={e => setCustomerName(e.target.value)}
+                    >
+                      <option value="">Select customer (or type below)</option>
+                      {customers
+                        .filter(c => customers.length <= 5 || c.name.toLowerCase().includes(customerSearch.toLowerCase()))
+                        .map(c => (
+                          <option key={c._id} value={c.name}>{c.name}</option>
+                        ))}
+                    </select>
+                  )}
 
                 <input
                   type="text"

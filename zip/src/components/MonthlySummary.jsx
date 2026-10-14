@@ -96,7 +96,11 @@ export default function MonthlySummary({ allSales = [], selectedDate }) {
   return (
     <div className="">
       <section>
-        <Charts rows={rows} selectedDate={selectedDate} period="monthly"/>
+        <div className="w-full overflow-x-auto">
+        <div className="min-w-[900px]">
+          <Charts rows={rows} selectedDate={selectedDate} period="monthly"/>
+        </div>
+        </div>
           <div className="mt-5 space-y-2">
             {[...rows].sort((a, b) => b.sortKey - a.sortKey).map((r, i) => (
               <div key={i} className="flex flex-wrap justify-between gap-x-4 gap-y-1 rounded-xl border border-slate-100 bg-slate-50 p-3">

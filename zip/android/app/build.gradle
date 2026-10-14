@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "com.mogogosiekautospares"
+    namespace "com.boscoautospares"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.boscopossync.pos"
+        applicationId "com.boscoautospares.pos"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

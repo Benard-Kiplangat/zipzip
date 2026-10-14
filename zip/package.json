@@ -1,12 +1,12 @@
 {
-  "name": "Imara-AutoSpares-POS",
-  "version": "0.3.2",
+  "name": "Bosco-AutoSpares-POS",
+  "version": "0.3.3",
   "author": "Benard Kiplangat",
   "description": "POS application for an Autospares Shop",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build --outDir \"C:\\Users\\Ben\\Documents\\imara-autospares\\pos\"",
+    "build": "vite build --outDir \"C:\\Users\\Ben\\Documents\\bosco-autospares\\pos\"",
     "build:android:web": "vite build --outDir dist",
     "build:android": "npm run build:android:web && npx cap sync android",
     "android:debug": "npm run build:android && cd android && gradlew.bat assembleDebug",
@@ -21,6 +21,8 @@
     "@capacitor/android": "^7.2.0",
     "@capacitor/cli": "^7.2.0",
     "@capacitor/core": "^7.2.0",
+    "@capacitor/filesystem": "^7.1.9",
+    "@capacitor/share": "^7.0.4",
     "@vitejs/plugin-react": "^4.4.1",
     "better-sqlite3": "^13.0.2",
     "chart.js": "^4.5.1",
@@ -49,15 +51,15 @@
     "wait-on": "^8.0.0"
   },
   "build": {
-    "appId": "com.ben.imaraautospares",
-    "productName": "Imara AutoSpares POS",
+    "appId": "com.ben.boscoautospares",
+    "productName": "Bosco AutoSpares POS",
     "files": [
       "electron/**/*",
       "node_modules/**/*",
       "package.json"
     ],
     "directories": {
-      "output": "dist"
+      "output": "dist-electron"
     },
     "win": {
       "target": "nsis",

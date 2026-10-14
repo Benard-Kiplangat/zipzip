@@ -55,9 +55,8 @@ export default function SyncButton() {
   //FILE EXPOT
   const handleBackupFile = async () => {
     try {
-      handleBackup();
-    }
-    catch (err) {
+      await handleBackup();
+    } catch (err) {
       console.error("Backup failed:", err);
       alert(`Backup failed: ${err.message}`);
     }
@@ -70,7 +69,7 @@ export default function SyncButton() {
         await window.electronAPI.createBackup();
         alert("Backup created successfully.");
       } else {
-        handleBackup();
+        await handleBackup();
       }
     } catch (err) {
       console.error("Backup failed:", err);
@@ -79,14 +78,11 @@ export default function SyncButton() {
   };
 
   const handleBackup = async () => {
-    const all = await db.allDocs({ include_docs: false });
-    const docs = await Promise.all(
-      all.rows.map((row) =>
-        db.get(row.id, { attachments: true }).catch(() => null)
-      )
-    );
-
-    const filteredDocs = docs.filter(Boolean);
+    // Fetch documents in one adapter-supported query (including attachments).
+    const all = await db.allDocs({ include_docs: true, attachments: true });
+    const filteredDocs = all.rows
+      .map((row) => row.doc)
+      .filter((doc) => doc && !doc._id.startsWith("_design/"));
     const counts = filteredDocs.reduce((acc, doc) => {
       const type = doc.type || "unknown";
       acc[type] = (acc[type] || 0) + 1;
@@ -100,16 +96,33 @@ export default function SyncButton() {
       docs: filteredDocs,
     };
 
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: "application/json",
-    });
+    const filename = `zippos-export-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+    const json = JSON.stringify(payload, null, 2);
 
+    // Capacitor WebViews do not reliably download blob URLs. Save to the
+    // cache and open the native share sheet so the user can keep the export.
+    if (window.Capacitor?.isNativePlatform?.()) {
+      const [{ Filesystem, Directory, Encoding }, { Share }] = await Promise.all([
+        import("@capacitor/filesystem"),
+        import("@capacitor/share"),
+      ]);
+      const { uri } = await Filesystem.writeFile({
+        path: filename,
+        data: json,
+        directory: Directory.Cache,
+        encoding: Encoding.UTF8,
+      });
+      await Share.share({ title: "Export database", url: uri });
+      return;
+    }
+
+    const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `zippos-export-${new Date().toISOString()}.json`;
+    a.download = filename;
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const handleRestoreFile = async () => {
@@ -280,7 +293,7 @@ export default function SyncButton() {
       case "error":
         return "⚠️ Sync Error";
       default:
-        return "📡 Online Sync";
+        return "📡Sync Online";
     }
   };
 
@@ -300,6 +313,7 @@ export default function SyncButton() {
       <button
         type="button"
         onClick={() => setIsSyncModalOpen(true)}
+        title={syncStatus.progressMessage || syncStatus.errorMessage || ""}
         className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors border shadow-2xs flex items-center gap-1.5 ${syncStatus.status === "online"
           ? "bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100"
           : syncStatus.status === "syncing"

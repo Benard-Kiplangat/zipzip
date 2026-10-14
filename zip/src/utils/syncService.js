@@ -1,24 +1,24 @@
-import PouchDB from "pouchdb-browser";
 import { db, usesPouchDb } from "../db";
 
 const SYNC_URL_KEY = "bosco_remote_sync_url";
 const SYNC_ENABLED_KEY = "bosco_remote_sync_enabled";
 const SYNC_API_KEY = "bosco_remote_sync_api_key";
 const SYNC_START_DATE_KEY = "bosco_remote_sync_start_date";
-const POLL_INTERVAL_MS = 5 * 1000;
+const SYNC_DEVICE_ID_KEY = "bosco_remote_sync_device_id";
+const POLL_INTERVAL_MS = 30 * 1000;
 const INITIAL_RETRY_DELAY_MS = 1 * 1000;
 const MAX_RETRY_DELAY_MS = 60 * 1000;
 const REQUEST_TIMEOUT_MS = 30 * 1000;
 const SYNC_BATCH_SIZE = 100;
-const SYNC_OUTBOX_VERSION = 2;
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+const FEED_VERSION = 1;
 
-let syncHandler = null;
 let syncTimer = null;
 let syncWakeHandler = null;
-let syncRunningGeneration = null;
-let syncGeneration = 0;
+let runningGeneration = null;
+let generation = 0;
 let retryDelayMs = INITIAL_RETRY_DELAY_MS;
-let statusListeners = new Set();
+const statusListeners = new Set();
 let currentStatus = {
   status: "idle",
   lastSyncTime: null,
@@ -33,11 +33,20 @@ export function getStoredSyncConfig() {
       startDate = new Date().toISOString();
       localStorage.setItem(SYNC_START_DATE_KEY, startDate);
     }
+    let deviceId = localStorage.getItem(SYNC_DEVICE_ID_KEY);
+    if (!deviceId) {
+      deviceId =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `device-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem(SYNC_DEVICE_ID_KEY, deviceId);
+    }
     return {
       url: localStorage.getItem(SYNC_URL_KEY) || "",
       enabled: localStorage.getItem(SYNC_ENABLED_KEY) === "true",
       apiKey: localStorage.getItem(SYNC_API_KEY) || "",
       startDate: new Date(startDate).toISOString(),
+      deviceId,
     };
   } catch (error) {
     console.error("Failed to read sync configuration:", error);
@@ -46,20 +55,19 @@ export function getStoredSyncConfig() {
       enabled: false,
       apiKey: "",
       startDate: new Date().toISOString(),
+      deviceId: `device-${Date.now()}`,
     };
   }
 }
 
 export function saveSyncConfig(url, enabled, apiKey = "", startDate) {
   try {
-    const parsedStartDate = Date.parse(startDate || getStoredSyncConfig().startDate);
-    if (Number.isNaN(parsedStartDate)) {
-      throw new Error("Enter a valid sync start date.");
-    }
+    const timestamp = Date.parse(startDate || getStoredSyncConfig().startDate);
+    if (Number.isNaN(timestamp)) throw new Error("Enter a valid sync start date.");
     localStorage.setItem(SYNC_URL_KEY, url.trim());
     localStorage.setItem(SYNC_ENABLED_KEY, enabled ? "true" : "false");
     localStorage.setItem(SYNC_API_KEY, apiKey.trim());
-    localStorage.setItem(SYNC_START_DATE_KEY, new Date(parsedStartDate).toISOString());
+    localStorage.setItem(SYNC_START_DATE_KEY, new Date(timestamp).toISOString());
   } catch (error) {
     updateStatus({
       status: "error",
@@ -67,16 +75,12 @@ export function saveSyncConfig(url, enabled, apiKey = "", startDate) {
     });
     throw error;
   }
-
-  if (enabled) {
-    startSync(url.trim(), apiKey.trim());
-  } else {
-    stopSync();
-  }
+  if (enabled) startSync(url.trim(), apiKey.trim());
+  else stopSync();
 }
 
-function updateStatus(newStatusObj) {
-  currentStatus = { ...currentStatus, ...newStatusObj };
+function updateStatus(patch) {
+  currentStatus = { ...currentStatus, ...patch };
   statusListeners.forEach((listener) => listener(currentStatus));
 }
 
@@ -87,520 +91,343 @@ export function subscribeSyncStatus(listener) {
 }
 
 export function stopSync() {
-  syncGeneration += 1;
-  if (syncTimer) {
-    clearTimeout(syncTimer);
-    syncTimer = null;
-  }
-  if (syncHandler) {
-    syncHandler.cancel();
-    syncHandler = null;
-  }
+  generation += 1;
+  if (syncTimer) clearTimeout(syncTimer);
+  syncTimer = null;
   if (syncWakeHandler && typeof document !== "undefined") {
     document.removeEventListener("visibilitychange", syncWakeHandler);
     window.removeEventListener("online", syncWakeHandler);
-    syncWakeHandler = null;
   }
+  syncWakeHandler = null;
   retryDelayMs = INITIAL_RETRY_DELAY_MS;
   updateStatus({ status: "idle", errorMessage: "", progressMessage: "" });
 }
 
-function syncOptions(apiKey) {
-  return {
-    skip_setup: false,
-    auth: { username: "sync", password: apiKey },
-    ajax: { timeout: REQUEST_TIMEOUT_MS },
-  };
-}
-
-export function startSync(remoteUrlOverride, apiKeyOverride) {
+export function startSync(urlOverride, apiKeyOverride) {
   stopSync();
-  const generation = syncGeneration;
-  retryDelayMs = INITIAL_RETRY_DELAY_MS;
-
+  const thisGeneration = generation;
   const config = getStoredSyncConfig();
-  const targetUrl =
-    (remoteUrlOverride === undefined ? config.url : remoteUrlOverride || "").trim();
-  const apiKey =
-    (apiKeyOverride === undefined ? config.apiKey : apiKeyOverride || "").trim();
-  const syncStartDate = config.startDate;
-
-  if (!targetUrl || !apiKey) {
+  const url = (urlOverride === undefined ? config.url : urlOverride || "").trim();
+  const apiKey = (apiKeyOverride === undefined ? config.apiKey : apiKeyOverride || "").trim();
+  if (!url || !apiKey) {
     updateStatus({
       status: "error",
-      errorMessage: !targetUrl
-        ? "No remote server URL configured."
+      errorMessage: !url
+        ? "No remote sync server URL configured."
         : "Enter the sync server key configured by your administrator.",
     });
     return;
   }
 
-  let remoteDb;
-  try {
-    remoteDb = new PouchDB(targetUrl, syncOptions(apiKey));
-  } catch (error) {
-    console.error("Failed to initialize remote sync database:", error);
-    updateStatus({
-      status: "error",
-      errorMessage: error.message || "Invalid remote URL format.",
-    });
-    return;
-  }
-
-  if (usesPouchDb) {
-    updateStatus({
-      status: "syncing",
-      errorMessage: "",
-      progressMessage: "Connecting to the sync server...",
-    });
-    let replicatedCount = 0;
-    syncHandler = PouchDB.sync(db, remoteDb, {
-      live: true,
-      retry: true,
-      selector: syncSelector(syncStartDate),
-      back_off_function: (delay) => (delay === 0 ? 1000 : Math.min(delay * 2, 60000)),
-    })
-      .on("change", (info) => {
-        if (generation !== syncGeneration) return;
-        const docs = info.change?.docs || [];
-        replicatedCount += docs.length;
-        updateStatus({
-          status: "syncing",
-          errorMessage: "",
-          progressMessage: `Processed ${replicatedCount} records...`,
-        });
-        dispatchDbChanged(docs);
-      })
-      .on("paused", (error) => {
-        if (generation !== syncGeneration) return;
-        if (error) {
-          updateStatus({
-            status: "offline",
-            errorMessage: error.message || "Connection paused. Retrying...",
-            progressMessage: "PouchDB retry is enabled; waiting for the connection to recover...",
-          });
-        } else {
-          updateStatus({
-            status: "online",
-            lastSyncTime: new Date().toISOString(),
-            errorMessage: "",
-            progressMessage: "",
-          });
-        }
-      })
-      .on("active", () => {
-        if (generation === syncGeneration) {
-          updateStatus({
-            status: "syncing",
-            errorMessage: "",
-            progressMessage: "Syncing changes...",
-          });
-        }
-      })
-      .on("denied", (error) => {
-        if (generation !== syncGeneration) return;
-        console.error("Sync denied:", error);
-        updateStatus({
-          status: "error",
-          errorMessage: "Access denied. Check the configured sync server key.",
-          progressMessage: "",
-        });
-      })
-      .on("error", (error) => {
-        if (generation !== syncGeneration) return;
-        console.error("Sync error:", error);
-        updateStatus({
-          status: "error",
-          errorMessage: error.message || "Failed to connect to remote sync server.",
-          progressMessage: "",
-        });
-      });
-    return;
-  }
-
+  const endpoint = getChangeFeedUrl(url);
+  const run = () => runSync(endpoint, url, apiKey, config, thisGeneration);
   if (typeof document !== "undefined") {
     syncWakeHandler = () => {
-      if (document.visibilityState === "visible") {
-        runScheduledAdapterSync(remoteDb, targetUrl, generation, syncStartDate);
-      }
+      if (document.visibilityState === "visible") run();
     };
     document.addEventListener("visibilitychange", syncWakeHandler);
-    window.addEventListener("online", syncWakeHandler);
+    window.addEventListener("online", run);
   }
-  runScheduledAdapterSync(remoteDb, targetUrl, generation, syncStartDate);
+  run();
 }
 
-function handleAdapterSyncError(error, generation, remoteDb, targetUrl, syncStartDate) {
-  console.error("Online sync failed:", error);
-  if (generation !== syncGeneration) return;
-  const status = Number(error.status || error.statusCode);
-  const denied = status === 401 || status === 403;
-  const permanentClientError = status === 400 || denied;
-  const delay = retryDelayMs;
-  retryDelayMs = Math.min(retryDelayMs * 2, MAX_RETRY_DELAY_MS);
-  updateStatus({
-    status: permanentClientError ? "error" : "offline",
-    progressMessage: "",
-    errorMessage: describeSyncError(error, denied),
-  });
-  if (!permanentClientError) {
-    updateStatus({
-      progressMessage: `Retrying sync in ${Math.ceil(delay / 1000)} seconds...`,
+function getChangeFeedUrl(databaseUrl) {
+  const url = new URL(databaseUrl);
+  url.pathname = url.pathname.replace(/\/+$/, "");
+  if (/\/db\/[^/]+$/i.test(url.pathname)) {
+    url.pathname = url.pathname.replace(/\/db\/[^/]+$/i, "/sync/changes");
+  } else {
+    url.pathname = `${url.pathname}/sync/changes`.replace(/\/{2,}/g, "/");
+  }
+  url.search = "";
+  url.hash = "";
+  return url.toString();
+}
+
+async function requestJson(endpoint, apiKey, options = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(endpoint, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        Authorization: `Basic ${btoa(`sync:${apiKey}`)}`,
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...options.headers,
+      },
     });
-    scheduleAdapterSyncRetry(delay, generation, remoteDb, targetUrl, syncStartDate);
+    const body = await response.text();
+    let data;
+    try {
+      data = body ? JSON.parse(body) : {};
+    } catch {
+      const error = new Error(
+        `Sync server returned a non-JSON response (HTTP ${response.status}).`,
+      );
+      error.status = response.status;
+      throw error;
+    }
+    if (!response.ok) {
+      const error = new Error(data.message || data.error || `Sync server returned HTTP ${response.status}.`);
+      error.status = response.status;
+      error.code = data.error;
+      throw error;
+    }
+    return data;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("Sync request timed out. The device will retry automatically.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
-function describeSyncError(error, denied) {
-  if (denied) return "Access denied. Check the configured sync server key.";
-  const status = Number(error.status || error.statusCode);
-  if (status === 404) {
-    return "Sync database not found. Check that the URL ends with the correct /<business-code>/db/posdb path.";
-  }
-  if (status >= 400 && status < 500) {
-    return `Sync server rejected the request (${status}): ${error.message || "Check the sync URL and server configuration."}`;
-  }
-  if (
-    error.name === "SyntaxError" &&
-    /json|unexpected token|unexpected end/i.test(error.message || "")
-  ) {
-    return "The sync endpoint returned a non-JSON response. Check the database URL and reverse-proxy routing.";
-  }
-  if (error.message === "missing" || error.name === "not_found") {
-    return "A requested sync record was not found. The sync will continue after reconciling the record.";
-  }
-  return error.message || "Unable to reach the sync server.";
-}
+async function runSync(endpoint, targetUrl, apiKey, config, thisGeneration) {
+  if (runningGeneration === thisGeneration || thisGeneration !== generation) return;
+  runningGeneration = thisGeneration;
+  updateStatus({
+    status: "syncing",
+    errorMessage: "",
+    progressMessage: "Connecting to the JSON change feed...",
+  });
 
-function runScheduledAdapterSync(remoteDb, targetUrl, generation, syncStartDate) {
-  runAdapterSync(remoteDb, targetUrl, generation, syncStartDate).catch((error) =>
-    handleAdapterSyncError(error, generation, remoteDb, targetUrl, syncStartDate),
-  );
-}
-
-function scheduleAdapterSyncRetry(delay, generation, remoteDb, targetUrl, syncStartDate) {
-  if (syncTimer) clearTimeout(syncTimer);
-  syncTimer = setTimeout(() => {
-    syncTimer = null;
-    runScheduledAdapterSync(remoteDb, targetUrl, generation, syncStartDate);
-  }, delay);
-}
-
-async function runAdapterSync(remoteDb, targetUrl, generation, syncStartDate) {
-  if (syncRunningGeneration === generation || generation !== syncGeneration) return;
-  syncRunningGeneration = generation;
   try {
     let state = await db.getSyncState(targetUrl);
-    if (!state) {
-      state = { initialized: false, lastSequence: 0, outboxVersion: 0 };
-    }
-    if (
-      state.outboxVersion !== SYNC_OUTBOX_VERSION ||
-      state.syncStartDate !== syncStartDate
-    ) {
+    if (!state || state.feedVersion !== FEED_VERSION) {
       updateStatus({
         status: "syncing",
-        errorMessage: "",
-        progressMessage: "Preparing changes from the sync start date...",
+        progressMessage: "Starting from the server's current change-feed position...",
       });
-      await db.seedSyncChanges(syncStartDate);
+      const latest = await requestJson(
+        `${endpoint}?since=latest`,
+        apiKey,
+      );
       state = {
-        ...state,
-        initialized: true,
-        lastSequence: state.lastSequence ?? 0,
-        outboxVersion: SYNC_OUTBOX_VERSION,
-        syncStartDate,
+        feedVersion: FEED_VERSION,
+        syncStartDate: config.startDate,
+        remoteCursor: latest.nextCursor,
+        localSequence: 0,
       };
+      if (!usesPouchDb) await db.seedSyncChanges(config.startDate);
       await db.setSyncState(targetUrl, state);
-    } else if (!state.initialized) {
-      state = { ...state, initialized: true, lastSequence: state.lastSequence ?? 0 };
+    } else if (state.syncStartDate !== config.startDate) {
+      if (!usesPouchDb) await db.seedSyncChanges(config.startDate);
+      state.syncStartDate = config.startDate;
       await db.setSyncState(targetUrl, state);
     }
 
-    if (generation !== syncGeneration) return;
-    updateStatus({
-      status: "syncing",
-      errorMessage: "",
-      progressMessage: "Uploading local changes...",
-    });
-    let uploadedCount = 0;
-    await pushPendingChanges(remoteDb, generation, syncStartDate, (count) => {
-      uploadedCount += count;
-      updateStatus({
-        status: "syncing",
-        progressMessage: `Processed ${uploadedCount} local changes`,
-      });
-    });
+    await uploadLocalChanges(endpoint, targetUrl, apiKey, config, state, thisGeneration);
+    if (thisGeneration !== generation) return;
+    await downloadRemoteChanges(endpoint, targetUrl, apiKey, config, state, thisGeneration);
+    if (thisGeneration !== generation) return;
 
-    let lastSequence = state.lastSequence;
-    let downloadedCount = 0;
-    while (generation === syncGeneration) {
-      updateStatus({
-        status: "syncing",
-        errorMessage: "",
-        progressMessage: `Checking for remote changes${
-          downloadedCount ? `: ${downloadedCount} received` : "..."
-        }`,
-      });
-      const changes = await remoteDb.changes({
-        since: lastSequence,
-        limit: SYNC_BATCH_SIZE,
-        include_docs: true,
-        style: "all_docs",
-        selector: syncSelector(syncStartDate),
-      });
-      const page = changes.results || [];
-      const changedDocs = [];
-      for (const change of page) {
-        if (generation !== syncGeneration) return;
-        if (!change.doc) continue;
-        if (!isSyncDocAfterStart(change.doc, syncStartDate)) continue;
-        const applied = await db.applyRemoteSyncDoc(change.doc);
-        if (applied) {
-          changedDocs.push(change.doc);
-        } else {
-          const localDoc = await db.get(change.doc._id).catch((error) => {
-            if (error.status === 404) return null;
-            throw error;
-          });
-          if (localDoc) await db.queueSyncDoc(localDoc);
-        }
-      }
-
-      if (generation !== syncGeneration) return;
-      lastSequence = changes.last_seq;
-      await db.setSyncState(targetUrl, {
-        ...state,
-        initialized: true,
-        lastSequence,
-      });
-      downloadedCount += page.length;
-      if (changedDocs.length) dispatchDbChanged(changedDocs);
-      if (!page.length || page.length < SYNC_BATCH_SIZE) break;
-    }
-
-    if (generation !== syncGeneration) return;
+    retryDelayMs = INITIAL_RETRY_DELAY_MS;
     updateStatus({
       status: "online",
       lastSyncTime: new Date().toISOString(),
       errorMessage: "",
       progressMessage: "",
     });
-    retryDelayMs = INITIAL_RETRY_DELAY_MS;
-    if (generation === syncGeneration) {
-      if (syncTimer) clearTimeout(syncTimer);
-      syncTimer = setTimeout(() => {
-        syncTimer = null;
-        runScheduledAdapterSync(remoteDb, targetUrl, generation, syncStartDate);
-      }, POLL_INTERVAL_MS);
+    scheduleSync(POLL_INTERVAL_MS, () =>
+      runSync(endpoint, targetUrl, apiKey, config, thisGeneration),
+    );
+  } catch (error) {
+    if (thisGeneration !== generation) return;
+    console.error("JSON change-feed sync failed:", error);
+    if (error.status === 410) {
+      updateStatus({
+        status: "error",
+        errorMessage:
+          error.message ||
+          "This device missed the server's 24-hour sync window. Import a current export before reconnecting.",
+        progressMessage: "",
+      });
+      return;
     }
+    if (error.status === 400 || error.status === 413) {
+      updateStatus({
+        status: "error",
+        errorMessage: error.message || "The sync server rejected this change batch.",
+        progressMessage: "",
+      });
+      return;
+    }
+    const delay = retryDelayMs;
+    retryDelayMs = Math.min(retryDelayMs * 2, MAX_RETRY_DELAY_MS);
+    updateStatus({
+      status: "offline",
+      errorMessage: error.message || "Unable to reach the sync server.",
+      progressMessage: `Retrying sync in ${Math.ceil(delay / 1000)} seconds...`,
+    });
+    scheduleSync(delay, () =>
+      runSync(endpoint, targetUrl, apiKey, config, thisGeneration),
+    );
   } finally {
-    if (syncRunningGeneration === generation) syncRunningGeneration = null;
+    if (runningGeneration === thisGeneration) runningGeneration = null;
   }
 }
 
-async function pushPendingChanges(remoteDb, generation, syncStartDate, onProgress) {
-  while (generation === syncGeneration) {
-    const pending = await db.getPendingSyncChanges(SYNC_BATCH_SIZE, syncStartDate);
-    if (!pending.length) return;
+function scheduleSync(delay, callback) {
+  if (syncTimer) clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    syncTimer = null;
+    callback();
+  }, delay);
+}
 
-    updateStatus({
-      status: "syncing",
-      errorMessage: "",
-      progressMessage: `Checking ${pending.length} queued changes...`,
-    });
-    const remoteRows = await remoteDb.allDocs({
-      keys: pending.map((change) => change.id),
-      include_docs: true,
-    });
-    const remoteRowById = new Map(
-      (remoteRows.rows || []).map((row) => [row.id, row]),
-    );
-    const remoteById = new Map(
-      (remoteRows.rows || [])
-        .filter((row) => row.doc)
-        .map((row) => [row.id, row.doc]),
-    );
-    const toWrite = [];
-
-    for (const change of pending) {
-      if (generation !== syncGeneration) return;
+async function uploadLocalChanges(endpoint, targetUrl, apiKey, config, state, thisGeneration) {
+  if (usesPouchDb) {
+    let sequence = state.localSequence || 0;
+    while (thisGeneration === generation) {
       updateStatus({
         status: "syncing",
-        progressMessage: `Checking remote record ${change.id}...`,
+        progressMessage: "Checking local changes...",
       });
-      const remoteDoc = remoteById.get(change.id);
-      const comparison = remoteDoc ? compareSyncDocs(change.doc, remoteDoc) : 1;
-
-      if (remoteDoc && comparison < 0) {
-        await db.applyRemoteSyncDoc(remoteDoc);
-        await markChangeSynced(change);
-      } else if (
-        (remoteDoc && comparison === 0) ||
-        (!remoteDoc && change.doc._deleted)
-      ) {
-        await markChangeSynced(change);
-      } else {
-        const outgoing = { ...change.doc };
-        delete outgoing._rev;
-        delete outgoing._conflicts;
-        const remoteRevision =
-          remoteDoc?._rev || remoteRowById.get(change.id)?.value?.rev;
-        if (remoteRevision) outgoing._rev = remoteRevision;
-        toWrite.push({ change, outgoing });
+      const batch = await db.getLocalChangesSince(sequence, SYNC_BATCH_SIZE);
+      const changes = (batch.results || [])
+        .filter((change) => change.doc && isAfterStart(change.doc, config.startDate))
+        .map((change) => ({ id: change.id, doc: stripRevision(change.doc) }));
+      if (changes.length) {
+        await appendChanges(endpoint, apiKey, config.deviceId, changes);
       }
+      sequence = batch.last_seq;
+      state.localSequence = sequence;
+      await db.setSyncState(targetUrl, state);
+      if (!batch.results?.length || batch.results.length < SYNC_BATCH_SIZE) return;
     }
-
-    const writeResults = toWrite.length
-      ? await remoteDb.bulkDocs(toWrite.map(({ outgoing }) => outgoing))
-      : [];
-    for (let index = 0; index < toWrite.length; index += 1) {
-      if (generation !== syncGeneration) return;
-      const { change, outgoing } = toWrite[index];
-      const result = writeResults[index];
-      if (!result) {
-        throw new Error(`Sync server returned no result for record ${change.id}.`);
-      }
-      if (result?.error) {
-        if (result.status !== 409 && result.name !== "conflict") {
-          const error = new Error(
-            result.message || `Failed to sync record ${change.id}.`,
-          );
-          error.status = result.status;
-          error.name = result.name || error.name;
-          throw error;
-        }
-        const latestRemoteDoc = await getRemoteDoc(remoteDb, change.id);
-        if (latestRemoteDoc && compareSyncDocs(change.doc, latestRemoteDoc) <= 0) {
-          await db.applyRemoteSyncDoc(latestRemoteDoc);
-          await markChangeSynced(change);
-          continue;
-        }
-        const latestRevision =
-          latestRemoteDoc?._rev || remoteRowById.get(change.id)?.value?.rev;
-        if (latestRevision) outgoing._rev = latestRevision;
-        await remoteDb.put(outgoing);
-      }
-      await markChangeSynced(change);
-    }
-    onProgress(pending.length);
+    return;
   }
-}
 
-function markChangeSynced(change) {
-  return db.markSyncChangeSynced(change.id, change.updatedAt);
-}
-
-async function getRemoteDoc(remoteDb, id) {
-  try {
-    return await remoteDb.get(id);
-  } catch (error) {
-    if (!isNotFoundError(error)) throw error;
-    const revisions = await remoteDb.get(id, { open_revs: "all" }).catch((revisionError) => {
-      if (isNotFoundError(revisionError)) return [];
-      throw revisionError;
+  while (thisGeneration === generation) {
+    const pending = await db.getPendingSyncChanges(SYNC_BATCH_SIZE, config.startDate);
+    if (!pending.length) return;
+    updateStatus({
+      status: "syncing",
+      progressMessage: `Uploading ${pending.length} local changes...`,
     });
-    return revisions.map((result) => result.ok).find(Boolean) || null;
+    await appendChanges(
+      endpoint,
+      apiKey,
+      config.deviceId,
+      pending.map(({ id, doc }) => ({ id, doc: stripRevision(doc) })),
+    );
+    for (const change of pending) {
+      await db.markSyncChangeSynced(change.id, change.updatedAt);
+    }
   }
 }
 
-function isNotFoundError(error) {
-  return (
-    Number(error?.status || error?.statusCode) === 404 ||
-    error?.name === "not_found" ||
-    error?.error === "not_found" ||
-    error?.message === "missing" ||
-    error?.reason === "missing"
-  );
-}
-
-function compareSyncDocs(left, right) {
-  const leftTime = Date.parse(left?.updatedAt || left?.createdAt || 0) || 0;
-  const rightTime = Date.parse(right?.updatedAt || right?.createdAt || 0) || 0;
-  if (leftTime !== rightTime) return leftTime - rightTime;
-  return stableStringify(left).localeCompare(stableStringify(right));
-}
-
-function stableStringify(doc) {
-  if (Array.isArray(doc)) return `[${doc.map(stableStringify).join(",")}]`;
-  if (doc && typeof doc === "object") {
-    const entries = Object.keys(doc)
-      .filter((key) => key !== "_rev" && key !== "_conflicts")
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${stableStringify(doc[key])}`);
-    return `{${entries.join(",")}}`;
+async function appendChanges(endpoint, apiKey, deviceId, changes) {
+  let remaining = changes;
+  while (remaining.length) {
+    let count = remaining.length;
+    let body;
+    while (count > 0) {
+      body = JSON.stringify({
+        deviceId,
+        changes: remaining.slice(0, count),
+      });
+      if (new TextEncoder().encode(body).byteLength <= MAX_UPLOAD_BYTES) break;
+      count = Math.floor(count / 2);
+    }
+    if (!count) {
+      const error = new Error(
+        `Sync record ${remaining[0].id} exceeds the maximum upload size.`,
+      );
+      error.status = 413;
+      throw error;
+    }
+    await requestJson(endpoint, apiKey, { method: "POST", body });
+    remaining = remaining.slice(count);
   }
-  return JSON.stringify(doc);
+}
+
+async function downloadRemoteChanges(endpoint, targetUrl, apiKey, config, state, thisGeneration) {
+  while (thisGeneration === generation) {
+    updateStatus({
+      status: "syncing",
+      progressMessage: "Checking for remote changes...",
+    });
+    const page = await requestJson(
+      `${endpoint}?since=${encodeURIComponent(state.remoteCursor || 0)}&limit=${SYNC_BATCH_SIZE}`,
+      apiKey,
+    );
+
+    const appliedDocs = [];
+    for (const change of page.changes || []) {
+      if (thisGeneration !== generation) return;
+      if (change.deviceId === config.deviceId) continue;
+      if (!isAfterStart(change.doc, config.startDate)) continue;
+      updateStatus({
+        status: "syncing",
+        progressMessage: `Applying remote change ${change.id}...`,
+      });
+      if (await db.applyRemoteSyncDoc(change.doc)) {
+        appliedDocs.push(change.doc);
+      }
+    }
+    state.remoteCursor = page.nextCursor;
+    await db.setSyncState(targetUrl, state);
+    if (appliedDocs.length) dispatchDbChanged(appliedDocs);
+    if (!(page.changes || []).length || page.changes.length < SYNC_BATCH_SIZE) return;
+  }
 }
 
 function dispatchDbChanged(docs) {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent("bosco:db-changed", { detail: { docs } }));
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("bosco:db-changed", { detail: { docs } }),
+    );
+  }
+}
+
+function isAfterStart(doc, startDate) {
+  const start = Date.parse(startDate);
+  if (!doc || Number.isNaN(start)) return false;
+  return [doc.createdAt, doc.updatedAt].some((value) => {
+    const time = Date.parse(value || "");
+    return !Number.isNaN(time) && time >= start;
+  });
+}
+
+function stripRevision(doc) {
+  const copy = { ...doc };
+  delete copy._rev;
+  delete copy._revisions;
+  delete copy._conflicts;
+  return copy;
 }
 
 export async function testConnection(remoteUrl, apiKey) {
-  const target = remoteUrl.trim();
-  const secret = apiKey.trim();
-  if (!target) throw new Error("Please enter a valid remote server URL.");
-  if (!secret) throw new Error("Enter the sync server key configured by your administrator.");
-
-  const tempDb = new PouchDB(target, syncOptions(secret));
-  try {
-    return await tempDb.info();
-  } catch (error) {
-    throw new Error(error.message || "Unable to reach remote server.");
-  } finally {
-    await tempDb.close();
-  }
-}
-
-export async function acknowledgeImportedBaseline(remoteUrl, apiKey) {
-  if (usesPouchDb) {
-    throw new Error("Baseline setup is only available for SQLite-backed devices.");
-  }
-
   const targetUrl = remoteUrl.trim();
   const secret = apiKey.trim();
   if (!targetUrl) throw new Error("Please enter a valid remote server URL.");
   if (!secret) throw new Error("Enter the sync server key configured by your administrator.");
-
-  const existingState = await db.getSyncState(targetUrl);
-  if (existingState) {
-    throw new Error("This device has already started syncing with this server.");
-  }
-
-  const remoteDb = new PouchDB(targetUrl, syncOptions(secret));
-  try {
-    const info = await remoteDb.info();
-    if (info.update_seq === undefined || info.update_seq === null) {
-      throw new Error("The sync server did not provide a replication checkpoint.");
-    }
-    await db.acknowledgeSyncBaseline(targetUrl, {
-      initialized: true,
-      lastSequence: info.update_seq,
-      outboxVersion: SYNC_OUTBOX_VERSION,
-      syncStartDate: getStoredSyncConfig().startDate,
-    });
-  } finally {
-    await remoteDb.close();
-  }
+  const endpoint = getChangeFeedUrl(targetUrl);
+  const result = await requestJson(`${endpoint}?since=latest&limit=1`, secret);
+  return { db_name: "JSON change feed", update_seq: result.latestSeq };
 }
 
-function syncSelector(startDate) {
-  return {
-    $or: [
-      { updatedAt: { $gte: startDate } },
-      { createdAt: { $gte: startDate } },
-    ],
-  };
-}
-
-function isSyncDocAfterStart(doc, startDate) {
-  const startTime = Date.parse(startDate);
-  if (Number.isNaN(startTime)) return false;
-  return [doc?.createdAt, doc?.updatedAt].some((value) => {
-    const timestamp = Date.parse(value || "");
-    return !Number.isNaN(timestamp) && timestamp >= startTime;
+export async function acknowledgeImportedBaseline(remoteUrl, apiKey) {
+  if (usesPouchDb) {
+    throw new Error("Baseline acknowledgement is only available for SQLite-backed devices.");
+  }
+  const targetUrl = remoteUrl.trim();
+  const endpoint = getChangeFeedUrl(targetUrl);
+  const latest = await requestJson(
+    `${endpoint}?since=latest`,
+    apiKey.trim(),
+  );
+  const existing = await db.getSyncState(targetUrl);
+  if (existing) throw new Error("This device has already started syncing with this server.");
+  await db.acknowledgeSyncBaseline(targetUrl, {
+    feedVersion: FEED_VERSION,
+    syncStartDate: getStoredSyncConfig().startDate,
+    remoteCursor: latest.nextCursor,
+    localSequence: 0,
   });
 }
 

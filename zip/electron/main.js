@@ -270,6 +270,38 @@ ipcMain.handle("bosco:db:remove", async (_event, doc) => {
     return sqliteService.remove(doc);
 });
 
+ipcMain.handle("bosco:db:seedSyncChanges", async (_event, startDate) => {
+    return sqliteService.seedSyncChanges(startDate);
+});
+
+ipcMain.handle("bosco:db:getPendingSyncChanges", async (_event, limit, startDate) => {
+    return sqliteService.getPendingSyncChanges(limit, startDate);
+});
+
+ipcMain.handle("bosco:db:queueSyncDoc", async (_event, doc) => {
+    return sqliteService.queueSyncDoc(doc);
+});
+
+ipcMain.handle("bosco:db:markSyncChangeSynced", async (_event, id, updatedAt) => {
+    return sqliteService.markSyncChangeSynced(id, updatedAt);
+});
+
+ipcMain.handle("bosco:db:applyRemoteSyncDoc", async (_event, doc) => {
+    return sqliteService.applyRemoteSyncDoc(doc);
+});
+
+ipcMain.handle("bosco:db:getSyncState", async (_event, key) => {
+    return sqliteService.getSyncState(key);
+});
+
+ipcMain.handle("bosco:db:setSyncState", async (_event, key, value) => {
+    return sqliteService.setSyncState(key, value);
+});
+
+ipcMain.handle("bosco:db:acknowledgeSyncBaseline", async (_event, key, value) => {
+    return sqliteService.acknowledgeSyncBaseline(key, value);
+});
+
 ipcMain.handle("bosco:db:destroy", async () => {
     return sqliteService.destroy();
 });

@@ -49,7 +49,7 @@ export default function Stock() {
   };
 
   return (
-    <div className="p-4 pb-12 max-w-6xl space-t-6">
+    <div className="p-4 pb-12 max-w-6xl space-y-4 mx-auto">
       {/* Header */}
       <div className="flex flex-col justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <div>

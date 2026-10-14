@@ -62,7 +62,7 @@ function POSProductCard({
       </div>
       {/* Selling controls */}
       <div className="rounded-lg bg-slate-50 border border-slate-100 p-1.5 space-y-1.5 pb-2">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 items-end">
+        <div className="grid grid-cols-2 gap-1.5 items-end">
           <label className="text-xs text-slate-500 font-semibold">
             Price (Ksh)
             <input
