@@ -1,4 +1,3 @@
-// salesSync.js
 import { db } from "../db";
 
 const DEVICE_ID_KEY = "bosco_device_id";
@@ -174,20 +173,45 @@ async function importSales(sales) {
  * - Insert missing sales.
  * - Advance the cursor after successful import.
  */
-export async function syncSales() {
+export async function syncSales({ onProgress } = {}) {
+  const report = (stage, message, details = {}) => {
+    onProgress?.({
+      stage,
+      message,
+      ...details,
+    });
+  };
+
+  report("starting", "Preparing synchronization...");
+
   const deviceId = getDeviceId();
   const isFirstSync = localStorage.getItem(SYNC_CURSOR_KEY) === null;
 
-  // Step 1: Upload local sales. Safe to retry because sale IDs are unique.
+  // Step 1: Upload local sales.
+  report("reading", "Reading local sales...");
+
   const localSales = await getLocalSales();
+
+  report("uploading", `Uploading ${localSales.length} local sales...`, {
+    total: localSales.length,
+  });
+
   const uploadResult = await uploadSales(deviceId, localSales);
 
-  // Step 2: On first sync, establish a baseline without replaying
-  // historical stock deductions.
+  report("uploaded", "Local sales uploaded successfully.", {
+    total: localSales.length,
+    uploaded: uploadResult.uploaded,
+  });
+
+  // Initial baseline.
   if (isFirstSync) {
+    report("baseline", "Establishing initial synchronization baseline...");
+
     const baseline = await apiRequest("baseline", { deviceId });
 
     saveCursor(baseline.latestSequenceId ?? 0);
+
+    report("complete", "Initial synchronization completed.");
 
     return {
       deviceId,
@@ -200,22 +224,32 @@ export async function syncSales() {
     };
   }
 
-  // Step 3: Download one page of new sales.
+  // Step 2: Download new sales.
+  report("downloading", "Checking for sales from other terminals...");
+
   const cursor = getCursor();
   const downloadResult = await downloadSales(deviceId, cursor);
-
   const sales = downloadResult.sales || [];
 
-  // Step 4: Import before advancing the cursor.
+  report("importing", `Importing ${sales.length} received sales...`, {
+    total: sales.length,
+  });
+
+  // Step 3: Import.
   const importResult = await importSales(sales);
 
-  // The server must return the highest sequence ID examined,
-  // including records excluded because they belong to this device.
+  // Step 4: Advance the cursor after a successful import.
   const nextCursor = downloadResult.nextCursor;
 
   if (nextCursor !== undefined && nextCursor !== null) {
     saveCursor(nextCursor);
   }
+
+  report("complete", "Sales synchronization completed.", {
+    uploaded: uploadResult.uploaded,
+    downloaded: sales.length,
+    inserted: importResult.inserted,
+  });
 
   return {
     deviceId,
