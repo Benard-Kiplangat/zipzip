@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { db } from "../db";
 import SyncModal from "./SyncModal";
+import { syncSales } from "./salesSync";
 import { subscribeSyncStatus } from "../utils/syncService";
 import { useStockData } from '../hooks/useStockData'
 
@@ -41,6 +42,10 @@ export default function SyncButton() {
   const [importProgress, setImportProgress] = useState(0);
   const [importMessage, setImportMessage] = useState("");
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [syncProgress, setSyncProgress] = useState({
+  stage: "idle",
+  message: "Ready to sync",
+});
   const [syncStatus, setSyncStatus] = useState({ status: "idle" });
   const { hardReload } = useStockData();
 
@@ -48,6 +53,43 @@ export default function SyncButton() {
     const unsubscribe = subscribeSyncStatus(setSyncStatus);
     return () => unsubscribe();
   }, []);
+
+const handleSyncSales = async () => {
+  if (syncStatus.status === "syncing") return;
+
+  try {
+    setSyncStatus({ status: "syncing" });
+
+    setSyncProgress({
+      stage: "starting",
+      message: "Starting synchronization...",
+    });
+
+    const result = await syncSales({
+      onProgress: (progress) => {
+        setSyncProgress(progress);
+      },
+    });
+
+    setSyncStatus({ status: "success" });
+
+    setSyncProgress({
+      stage: "complete",
+      message: "Synchronization completed successfully.",
+    });
+
+    console.log("Sales sync result:", result);
+  } catch (error) {
+    console.error("Sales synchronization failed:", error);
+
+    setSyncStatus({ status: "error" });
+
+    setSyncProgress({
+      stage: "error",
+      message: error.message || "Synchronization failed.",
+    });
+  }
+};
 
   const formatProgress = (value) =>
     Math.max(0, Math.min(100, Math.round(value)));
