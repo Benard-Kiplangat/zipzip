@@ -1,10 +1,10 @@
 import { db } from "../db";
 
-const DEVICE_ID_KEY = "bosco_device_id";
+const DEVICE_ID_KEY = "bosco_001";
 const SYNC_CURSOR_KEY = "bosco_sales_sync_cursor";
 
 // Configure this to your deployed Supabase Edge Function.
-const SYNC_API_URL = import.meta.env.VITE_SUPABASE_SYNC_URL;
+const SYNC_API_URL = "https://tkzfdkrrbgijpsdrjkrs.supabase.co/functions/v1/sales-sync";
 const SYNC_API_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 function getDeviceId() {
@@ -25,6 +25,12 @@ function getCursor() {
 function saveCursor(sequenceId) {
   localStorage.setItem(SYNC_CURSOR_KEY, String(sequenceId));
 }
+
+const baseline = await apiRequest("initialize", {
+  deviceId,
+});
+
+saveCursor(baseline.initialCursor ?? 0);
 
 async function apiRequest(action, body) {
   if (!SYNC_API_URL || !SYNC_API_KEY) {
