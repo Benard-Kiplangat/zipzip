@@ -39,6 +39,37 @@ export default function SyncModal({ isOpen, onClose }) {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+  let running = false;
+
+  const runSync = async () => {
+    if (running || !navigator.onLine) return;
+
+    running = true;
+
+    try {
+      await syncSales({
+        onProgress: (progress) => {
+          setSyncProgress(progress);
+        },
+      });
+    } catch (error) {
+      console.error("Automatic sales sync failed:", error);
+    } finally {
+      running = false;
+    }
+  };
+
+  const interval = setInterval(runSync, 5 * 60 * 1000);
+
+  window.addEventListener("online", runSync);
+
+  return () => {
+    clearInterval(interval);
+    window.removeEventListener("online", runSync);
+  };
+}, []);
+
   if (!isOpen) return null;
 
   const handleSave = () => {
@@ -298,6 +329,51 @@ export default function SyncModal({ isOpen, onClose }) {
               </button>
             </div>
           )}
+
+          <div className="space-y-3">
+  <div className="flex items-center justify-between">
+    <span className="font-medium">Sales synchronization</span>
+
+    <span
+      className={`text-sm ${
+        syncProgress.stage === "error"
+          ? "text-red-600"
+          : syncProgress.stage === "complete"
+          ? "text-green-600"
+          : "text-amber-600"
+      }`}
+    >
+      {syncProgress.stage === "complete"
+        ? "Completed"
+        : syncProgress.stage === "error"
+        ? "Failed"
+        : syncProgress.stage === "idle"
+        ? "Ready"
+        : "In progress"}
+    </span>
+  </div>
+
+  <p className="text-sm text-gray-600">
+    {syncProgress.message}
+  </p>
+
+  {syncStatus.status === "syncing" && (
+    <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+      <div className="h-full w-1/3 animate-pulse rounded-full bg-emerald-500" />
+    </div>
+  )}
+
+  <button
+    type="button"
+    onClick={handleSyncSales}
+    disabled={syncStatus.status === "syncing"}
+    className="rounded-lg bg-emerald-600 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
+  >
+    {syncStatus.status === "syncing"
+      ? "Syncing..."
+      : "Sync Now"}
+  </button>
+</div>
 
           <div className="flex items-center gap-2 pt-2">
             <button
