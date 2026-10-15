@@ -339,15 +339,10 @@ export function createSqliteDbService() {
 
   const acknowledgeSyncBaseline = async (key, value) => {
     const database = await getConnection();
-    await database.executeTransaction(
-      [
-        {
-          statement: 'INSERT INTO sync_state (key, value) VALUES (?, ?);',
-          values: [key, JSON.stringify(value)],
-        },
-        { statement: 'DELETE FROM sync_changes;', values: [] },
-      ],
-      true,
+    await database.run(
+      `INSERT INTO sync_state (key, value) VALUES (?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value;`,
+      [key, JSON.stringify(value)],
     );
   };
 

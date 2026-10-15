@@ -273,13 +273,10 @@ function createSqliteDbService(appPath) {
   };
 
   const acknowledgeSyncBaseline = (key, value) => {
-    const acknowledge = sqlite.transaction(() => {
-      sqlite.prepare(
-        'INSERT INTO sync_state (key, value) VALUES (?, ?)'
-      ).run(key, JSON.stringify(value));
-      sqlite.prepare('DELETE FROM sync_changes').run();
-    });
-    acknowledge();
+    sqlite.prepare(`
+      INSERT INTO sync_state (key, value) VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    `).run(key, JSON.stringify(value));
   };
 
   const destroy = () => {

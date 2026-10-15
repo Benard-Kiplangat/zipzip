@@ -164,13 +164,14 @@ function wrapPouchDbWrites(database) {
   database.setSyncState = async (key, state) => {
     const id = `_local/bosco-sync-${encodeURIComponent(key)}`;
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      const previous = await database.getSyncState(key);
+      const previous = await getCurrentDoc(id);
       const nextState = { ...state };
       delete nextState._id;
       delete nextState._rev;
       delete nextState._deleted;
       try {
         await originalPut({
+          ...previous,
           ...nextState,
           _id: id,
           ...(previous?._rev ? { _rev: previous._rev } : {}),

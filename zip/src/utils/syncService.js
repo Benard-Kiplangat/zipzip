@@ -208,7 +208,10 @@ async function runSync(endpoint, targetUrl, apiKey, config, thisGeneration) {
       state = {
         feedVersion: FEED_VERSION,
         syncStartDate: config.startDate,
-        remoteCursor: latest.nextCursor,
+        remoteCursor: Math.max(
+          latest.purgedThrough || 0,
+          (latest.oldestSeq || latest.nextCursor + 1) - 1,
+        ),
         localSequence: 0,
       };
       if (!usesPouchDb) await db.seedSyncChanges(config.startDate);
@@ -280,6 +283,7 @@ async function uploadLocalChanges(endpoint, targetUrl, apiKey, config, state, th
         progressMessage: "Checking local changes...",
       });
       const batch = await db.getLocalChangesSince(sequence, SYNC_BATCH_SIZE);
+      console.log(`Uploading ${batch.results.length} local changes since seq ${sequence}...`);
       const changes = (batch.results || [])
         .filter((change) => change.doc && isAfterStart(change.doc, config.startDate))
         .map((change) => ({ id: change.id, doc: stripRevision(change.doc) }));
