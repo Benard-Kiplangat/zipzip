@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { db } from "../db";
 import SyncModal from "./SyncModal";
+import { syncSales } from "./salesSync";
 import { subscribeSyncStatus } from "../utils/syncService";
 import { useStockData } from '../hooks/useStockData'
 
@@ -48,6 +49,39 @@ export default function SyncButton() {
     const unsubscribe = subscribeSyncStatus(setSyncStatus);
     return () => unsubscribe();
   }, []);
+
+  const handleSyncSales = async () => {
+  try {
+    setSyncStatus({ status: "syncing" });
+
+    const result = await syncSales();
+
+    setSyncStatus({
+      status: "success",
+      message: result.message || "Sales synchronized successfully.",
+    });
+
+    console.log("Sales sync result:", result);
+
+    alert(
+      `Sales synchronization complete.\n\n` +
+      `Uploaded: ${result.uploaded ?? 0}\n` +
+      `Already on server: ${result.alreadyExisted ?? 0}\n` +
+      `Downloaded: ${result.downloaded ?? 0}\n` +
+      `Imported: ${result.inserted ?? 0}\n` +
+      `Skipped: ${result.skipped ?? 0}`
+    );
+  } catch (error) {
+    console.error("Sales synchronization failed:", error);
+
+    setSyncStatus({
+      status: "error",
+      message: error.message,
+    });
+
+    alert(`Sales synchronization failed:\n${error.message}`);
+  }
+};
 
   const formatProgress = (value) =>
     Math.max(0, Math.min(100, Math.round(value)));
