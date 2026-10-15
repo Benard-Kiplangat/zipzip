@@ -42,6 +42,10 @@ export default function SyncButton() {
   const [importProgress, setImportProgress] = useState(0);
   const [importMessage, setImportMessage] = useState("");
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [syncProgress, setSyncProgress] = useState({
+  stage: "idle",
+  message: "Ready to sync",
+});
   const [syncStatus, setSyncStatus] = useState({ status: "idle" });
   const { hardReload } = useStockData();
 
@@ -50,36 +54,40 @@ export default function SyncButton() {
     return () => unsubscribe();
   }, []);
 
-  const handleSyncSales = async () => {
+const handleSyncSales = async () => {
+  if (syncStatus.status === "syncing") return;
+
   try {
     setSyncStatus({ status: "syncing" });
 
-    const result = await syncSales();
+    setSyncProgress({
+      stage: "starting",
+      message: "Starting synchronization...",
+    });
 
-    setSyncStatus({
-      status: "success",
-      message: result.message || "Sales synchronized successfully.",
+    const result = await syncSales({
+      onProgress: (progress) => {
+        setSyncProgress(progress);
+      },
+    });
+
+    setSyncStatus({ status: "success" });
+
+    setSyncProgress({
+      stage: "complete",
+      message: "Synchronization completed successfully.",
     });
 
     console.log("Sales sync result:", result);
-
-    alert(
-      `Sales synchronization complete.\n\n` +
-      `Uploaded: ${result.uploaded ?? 0}\n` +
-      `Already on server: ${result.alreadyExisted ?? 0}\n` +
-      `Downloaded: ${result.downloaded ?? 0}\n` +
-      `Imported: ${result.inserted ?? 0}\n` +
-      `Skipped: ${result.skipped ?? 0}`
-    );
   } catch (error) {
     console.error("Sales synchronization failed:", error);
 
-    setSyncStatus({
-      status: "error",
-      message: error.message,
-    });
+    setSyncStatus({ status: "error" });
 
-    alert(`Sales synchronization failed:\n${error.message}`);
+    setSyncProgress({
+      stage: "error",
+      message: error.message || "Synchronization failed.",
+    });
   }
 };
 
