@@ -383,6 +383,8 @@ export default function Sales() {
     };
     try {
       await db.put(toSave);
+      const queuedSale = {...toSave, _id: `q${toSave._id}`};
+      await db.put(queuedSale);
       setEditingSale(null);
       loadSales();
     } catch (err) {
@@ -500,7 +502,7 @@ export default function Sales() {
 
     try {
       for (const item of items) {
-        await db.put({
+        const sale = {
           ...item,
           isCreditPaid: true,
           dwnPayment: initialDwn,
@@ -508,7 +510,10 @@ export default function Sales() {
           bulkDwnPayment: initialDwn,
           paymentHistory: newHistory,
           updatedAt: now,
-        });
+        }
+        await db.put(sale);
+        const queuedSale = {...sale, _id: `q${sale._id}`};
+        await db.put(queuedSale);
       }
       loadSales();
     } catch (err) {
@@ -520,8 +525,12 @@ export default function Sales() {
   const handleDeleteSaleWithStockRestore = async (sale) => {
     const confirmed = window.confirm("Delete this sale and update stock?");
     if (!confirmed) return;
-    const result = await db.allDocs({ include_docs: true });
-    const stockDocs = result.rows.map(row => row.doc).filter(doc => doc.type === "product");
+    const result = await db.allDocs({
+      include_docs: true,
+      startkey: "product",
+      endkey: "product\uffff",
+    });
+    const stockDocs = result.rows.map(row => row.doc);
     const stockItem = stockDocs.find(item => item.name === sale.name);
     if (stockItem) {
       stockItem.stock += sale.quantity;

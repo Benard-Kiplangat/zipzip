@@ -55,6 +55,7 @@ export default function POS() {
     const sale = {
       _id: `sale_${new Date().toISOString()}`,
       type: "sale",
+      productId: product._id,
       name: product.name,
       quantity: qty,
       total,
@@ -83,6 +84,8 @@ export default function POS() {
       (Number(latestProduct.totalSold) || 0) + Number(qty);
 
     await db.put(sale);
+    const queuedSale = {...sale, _id: `q${sale._id}`};
+    await db.put(queuedSale);
     await db.put(latestProduct);
 
     setProducts((prev) => {
@@ -201,6 +204,7 @@ export default function POS() {
       const sale = {
         _id: `sale_${bulkSaleId}-${i}`,
         type: "sale",
+        productId: product._id,
         name: product.name,
         quantity: item.qty,
         total,
@@ -219,6 +223,9 @@ export default function POS() {
       };
 
       await db.put(sale);
+
+      const queuedSale = {...sale, _id: `q${sale._id}`};
+      await db.put(queuedSale);
 
       const updatedProduct = { ...product, totalSold: (product.totalSold || 0) + Number(item.qty), stock: product.stock - item.qty };
       await db.put(updatedProduct);

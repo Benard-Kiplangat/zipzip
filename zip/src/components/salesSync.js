@@ -5,7 +5,7 @@ const SYNC_CURSOR_KEY = "bosco_sales_sync_cursor";
 
 // Configure this to your deployed Supabase Edge Function.
 const SYNC_API_URL = "https://tkzfdkrrbgijpsdrjkrs.supabase.co/functions/v1/sales-sync";
-const SYNC_API_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const SYNC_API_KEY = "sb_publishable_WB5CHzMpJE8sYSe5MGxLhw_X5uTuWD0";
 
 function getDeviceId() {
   let deviceId = localStorage.getItem(DEVICE_ID_KEY);
@@ -25,12 +25,6 @@ function getCursor() {
 function saveCursor(sequenceId) {
   localStorage.setItem(SYNC_CURSOR_KEY, String(sequenceId));
 }
-
-const baseline = await apiRequest("initialize", {
-  deviceId,
-});
-
-saveCursor(baseline.initialCursor ?? 0);
 
 async function apiRequest(action, body) {
   if (!SYNC_API_URL || !SYNC_API_KEY) {
@@ -60,13 +54,16 @@ async function apiRequest(action, body) {
 }
 
 async function getLocalSales() {
-  const result = await db.allDocs({
+
+  const salesDocs = await db.allDocs({
     include_docs: true,
+    startkey: "q",
+    endkey: "q\uffff",
   });
 
-  return result.rows
+  return salesDocs.rows
     .map((row) => row.doc)
-    .filter((doc) => doc && doc.type === "sale" && doc._id);
+    .filter((doc) => doc && doc._id);
 }
 
 /**
@@ -75,22 +72,44 @@ async function getLocalSales() {
  * The server must enforce uniqueness on sale_id so retrying an
  * upload cannot create a duplicate.
  */
-async function uploadSales(deviceId, sales) {
-  if (!sales.length) {
+async function uploadSales(deviceId, queuedDocs) {
+  if (!queuedDocs.length) {
     return { uploaded: 0 };
   }
 
-  const result = await apiRequest("upload", {
+  const sales = queuedDocs.filter((doc) => doc.type === "sale");
+  const products = queuedDocs.filter((doc) => doc.type === "product");
+  const customers = queuedDocs.filter((doc) => doc.type === "customer");
+  const users = queuedDocs.filter((doc) => doc.type === "user");
+
+  /* console.log(sales);
+   console.log(products);
+   console.log(customers);
+   console.log(users);
+   */
+
+  const saleData = queuedDocs.map((doc) => ({
+    saleId: doc._id,
+    saleData: doc,
+  }));
+
+  const uploadResult = await apiRequest("upload", {
     deviceId,
-    sales: sales.map((sale) => ({
-      saleId: sale._id,
-      saleData: sale,
-    })),
+    saleData,
   });
 
+  if (!uploadResult.accepted) {
+    throw new Error(uploadResult.error || "Upload failed");
+  } else {
+    queuedDocs.forEach(doc => {
+      db.remove(doc).catch((error) => {
+        console.error("Could not delete queued docs:", doc._id, error);
+      });
+    });
+  }
   return {
-    uploaded: result.accepted ?? 0,
-    alreadyExisted: result.duplicates ?? 0,
+    uploaded: uploadResult.accepted ?? 0,
+    alreadyExisted: uploadResult.duplicates ?? 0,
   };
 }
 
@@ -112,48 +131,81 @@ async function downloadSales(deviceId, cursor) {
  * This function deliberately does not deduct stock.
  * We will add the stock effect for newly downloaded sales separately.
  */
-async function importSales(sales) {
-  if (!sales.length) {
+async function importSales(docs) {
+  if (!docs.length) {
     return { inserted: 0, skipped: 0 };
   }
-
-  const existing = await db.allDocs({
-    include_docs: true,
-  });
-
-  const existingIds = new Set(
-    existing.rows
-      .filter((row) => row.doc)
-      .map((row) => row.id)
-  );
 
   let inserted = 0;
   let skipped = 0;
 
-  for (const item of sales) {
-    const sale = item.saleData;
+  for (const item of docs) {
+    const doc = item.saleData;
 
-    if (!sale || sale.type !== "sale" || !sale._id) {
-      skipped++;
-      continue;
-    }
-
-    if (existingIds.has(sale._id)) {
+    if (!doc || !doc._id) {
       skipped++;
       continue;
     }
 
     // Strip PouchDB revision metadata before inserting.
-    const newSale = { ...sale };
+    const newSale = { ...doc, _id: doc._id.slice(1) };
     delete newSale._rev;
 
     try {
-      await db.put(newSale);
-      existingIds.add(sale._id);
-      inserted++;
+      // Check for duplicates before changing stock so retries are idempotent.
+      try {
+        await db.get(newSale._id);
+        skipped++;
+        continue;
+      } catch (error) {
+        if (error.status !== 404 && error.name !== "not_found") {
+          console.log(error);
+        }
+      }
+
+      if (newSale.type === "sale") {
+        if (newSale.productId) {
+          try {
+            const product = await db.get(newSale.productId);
+            await db.put({
+              ...product,
+              stock: (Number(product.stock) || 0) - (Number(newSale.quantity) || 0),
+            });
+          } catch (error) {
+            console.log(error);
+            // Keep the sale even if its product is not present locally.
+          }
+        }
+        await db.put(newSale);
+        inserted++;
+      } else if (newSale.type === "product") {
+        let product;
+        if (newSale.productId) {
+          try {
+            product = await db.get(newSale.productId);
+          } catch (error) {
+            if (error.status !== 404 && error.name !== "not_found") {
+              console.log(error);
+            }
+          }
+        }
+
+        if (product) {
+          await db.put({
+            ...product,
+            stock: (Number(product.stock) || 0) + (Number(newSale.stock) || 0),
+          });
+        } else {
+          await db.put(newSale);
+        }
+        inserted++;
+      } else {
+        await db.put(newSale);
+        inserted++
+      }
     } catch (error) {
       // Another sync or local process may have inserted it already.
-      console.error("Could not import sale:", sale._id, error);
+      console.error("Could not import sale:", doc._id, error);
       throw error;
     }
   }
@@ -193,28 +245,31 @@ export async function syncSales({ onProgress } = {}) {
   const deviceId = getDeviceId();
   const isFirstSync = localStorage.getItem(SYNC_CURSOR_KEY) === null;
 
-  // Step 1: Upload local sales.
-  report("reading", "Reading local sales...");
-
-  const localSales = await getLocalSales();
-
-  report("uploading", `Uploading ${localSales.length} local sales...`, {
-    total: localSales.length,
-  });
-
-  const uploadResult = await uploadSales(deviceId, localSales);
-
-  report("uploaded", "Local sales uploaded successfully.", {
-    total: localSales.length,
-    uploaded: uploadResult.uploaded,
-  });
-
-  // Initial baseline.
   if (isFirstSync) {
+    report("Initializing device...");
+
+    const initDevice = await apiRequest("initialize", {
+      deviceId,
+    });
+
+
+    if (!initDevice.success) {
+      throw new Error(
+        initDevice.error || "Device initialization failed"
+      );
+    }
+
+    // Initial baseline.
+
     report("baseline", "Establishing initial synchronization baseline...");
 
     const baseline = await apiRequest("baseline", { deviceId });
 
+    if (!baseline.success) {
+      throw new Error(
+        initDevice.error || "Baseline failed"
+      );
+    }
     saveCursor(baseline.latestSequenceId ?? 0);
 
     report("complete", "Initial synchronization completed.");
@@ -222,13 +277,27 @@ export async function syncSales({ onProgress } = {}) {
     return {
       deviceId,
       firstSync: true,
-      localSales: localSales.length,
-      ...uploadResult,
       downloaded: 0,
       inserted: 0,
       message: "Initial sales baseline established.",
     };
   }
+
+  // Step 1: Upload local sales.
+  report("reading", "Reading local sales...");
+
+  const localDocs = await getLocalSales();
+
+  report("uploading", `Uploading ${localDocs.length} local sales...`, {
+    total: localDocs.length,
+  });
+
+  const uploadResult = await uploadSales(deviceId, localDocs);
+
+  report("uploaded", "Local sales uploaded successfully.", {
+    total: localDocs.length,
+    uploaded: uploadResult.uploaded,
+  });
 
   // Step 2: Download new sales.
   report("downloading", "Checking for sales from other terminals...");
@@ -260,7 +329,7 @@ export async function syncSales({ onProgress } = {}) {
   return {
     deviceId,
     firstSync: false,
-    localSales: localSales.length,
+    localSales: localDocs.length,
     ...uploadResult,
     downloaded: sales.length,
     ...importResult,

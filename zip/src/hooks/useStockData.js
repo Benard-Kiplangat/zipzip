@@ -97,6 +97,8 @@ export function useStockData() {
           existing.lowStockThreshold = Number(form.lowStockThreshold);
         savedDoc = { ...existing };
         await db.put(savedDoc);
+        const queuedDoc = {...savedDoc, _id: `q${savedDoc._id}`};
+    await db.put(queuedDoc);
       } else if (form.id) {
         const doc = {
           _id: form.id,
@@ -111,6 +113,8 @@ export function useStockData() {
           doc.lowStockThreshold = Number(form.lowStockThreshold);
         savedDoc = doc;
         await db.put(doc);
+        const queuedDoc = {...doc, _id: `q${doc._id}`};
+        await db.put(queuedDoc);
       } else {
         const doc = {
           _id: `product_${Date.now()}`,
@@ -124,6 +128,8 @@ export function useStockData() {
           doc.lowStockThreshold = Number(form.lowStockThreshold);
         savedDoc = doc;
         await db.put(doc);
+        const queuedDoc = {...doc, _id: `q${doc._id}`};
+    await db.put(queuedDoc);
       }
 
       resetForm();

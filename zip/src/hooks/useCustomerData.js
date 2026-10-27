@@ -85,6 +85,8 @@ export function useCustomerData() {
           };
 
       await db.put(doc);
+      const queuedCustome = {...doc, _id: `q${doc._id}`};
+      await db.put(queuedCustome);
       await loadCustomers();
       resetForm();
       return doc;

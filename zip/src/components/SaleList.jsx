@@ -63,7 +63,10 @@ async function getNextInvoiceNumber(prefix) {
 
     const next = Number(counter.value) + 1;
     try {
-      await db.put({ ...counter, value: next, updatedAt: new Date().toISOString() });
+      const count = { ...counter, value: next, updatedAt: new Date().toISOString() }
+      await db.put(count);
+      const queuedCount = {...count, _id: `q${count._id}`};
+      await db.put(queuedCount);
       localStorage.setItem(legacyKey, String(next));
       return `${prefix}-${new Date().getFullYear()}-${String(next).padStart(6, "0")}`;
     } catch (error) {
@@ -372,12 +375,15 @@ const handleReceiptClick = async (items, key) => {
       const isPaid = newTotalPaid >= paymentInfo.total;
 
       for (const item of sale.items) {
-        await db.put({
+        const itemDoc = {
           ...item,
           paymentHistory: newHistory,
           isCreditPaid: isPaid,
           updatedAt: now,
-        });
+        }
+        await db.put(itemDoc);
+        const queuedItemDoc = {...itemDoc, _id: `q${itemDoc._id}`};
+        await db.put(queuedItemDoc);
       }
     } else {
       const existingHistory = Array.isArray(sale.paymentHistory)
@@ -389,12 +395,15 @@ const handleReceiptClick = async (items, key) => {
       const newTotalPaid = initialDwn + newHistoryPaid;
       const isPaid = newTotalPaid >= paymentInfo.total;
 
-      await db.put({
+      const itemSaleDoc2 = {
         ...sale,
         paymentHistory: newHistory,
         isCreditPaid: isPaid,
         updatedAt: now,
-      });
+      }
+      await db.put(itemSaleDoc2);
+      const queuedItemDoc2 = {...itemSaleDoc2, _id: `q${itemSaleDoc2._id}`};
+      await db.put(queuedItemDoc2);
     }
 
     try {

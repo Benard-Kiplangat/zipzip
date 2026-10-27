@@ -3,6 +3,14 @@ const path = require('path');
 const Database = require('better-sqlite3');
 
 function createSqliteDbService(appPath) {
+
+  function nextUpdatedAt(previousUpdatedAt) {
+  const previousTime = Date.parse(previousUpdatedAt || '');
+  return new Date(
+    Math.max(Date.now(), Number.isNaN(previousTime) ? 0 : previousTime + 1),
+  ).toISOString();
+}
+
   const filePath = path.join(appPath, 'bosco.sqlite');
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 
@@ -16,19 +24,6 @@ function createSqliteDbService(appPath) {
       body TEXT NOT NULL,
       createdAt TEXT,
       updatedAt TEXT
-    )
-  `);
-  sqlite.exec(`
-    CREATE TABLE IF NOT EXISTS sync_changes (
-      id TEXT PRIMARY KEY,
-      body TEXT NOT NULL,
-      updatedAt TEXT NOT NULL
-    )
-  `);
-  sqlite.exec(`
-    CREATE TABLE IF NOT EXISTS sync_state (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
     )
   `);
 
@@ -64,6 +59,7 @@ function createSqliteDbService(appPath) {
     const startKey = typeof options.startkey === 'string' ? options.startkey : null;
     const endKey = typeof options.endkey === 'string' ? options.endkey : null;
     const limit = Number.isInteger(options.limit) ? options.limit : null;
+    const dateLimit = options.dateLimit;
 
     let query = 'SELECT id, type, body, createdAt, updatedAt FROM docs';
     const clauses = [];
@@ -78,6 +74,21 @@ function createSqliteDbService(appPath) {
     } else if (endKey) {
       clauses.push('id <= ?');
       params.push(endKey);
+    }
+
+    if (dateLimit !== undefined && dateLimit !== null) {
+      let cutoff;
+      if (typeof dateLimit === 'number' && Number.isFinite(dateLimit) && dateLimit > 0) {
+        cutoff = new Date();
+        cutoff.setMonth(cutoff.getMonth() - dateLimit);
+      } else {
+        cutoff = new Date(dateLimit);
+      }
+
+      if (!Number.isNaN(cutoff.getTime())) {
+        clauses.push('createdAt >= ? AND createdAt <= ?');
+        params.push(cutoff.toISOString(), new Date().toISOString());
+      }
     }
 
     if (clauses.length) {
@@ -143,7 +154,6 @@ function createSqliteDbService(appPath) {
           body = excluded.body,
           updatedAt = excluded.updatedAt
       `).run(record);
-      queueSyncChange(normalized._id, serialized, normalized.updatedAt);
     });
     save();
 
@@ -157,126 +167,11 @@ function createSqliteDbService(appPath) {
     } catch (error) {
       if (error.status !== 404) throw error;
     }
-    const tombstone = {
-      ...(existing || doc),
-      _id: doc._id,
-      _deleted: true,
-      updatedAt: nextUpdatedAt(existing?.updatedAt),
-    };
     const removeRecord = sqlite.transaction(() => {
       sqlite.prepare('DELETE FROM docs WHERE id = ?').run(doc._id);
-      queueSyncChange(doc._id, JSON.stringify(tombstone), tombstone.updatedAt);
     });
     removeRecord();
     return { ok: true, id: doc._id, rev: doc._rev || '1-restore' };
-  };
-
-  const queueSyncChange = (id, body, updatedAt) => {
-    sqlite.prepare(`
-      INSERT INTO sync_changes (id, body, updatedAt)
-      VALUES (?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        body = excluded.body,
-        updatedAt = excluded.updatedAt
-    `).run(id, body, updatedAt || new Date().toISOString());
-  };
-
-  const seedSyncChanges = (startDate = new Date(0).toISOString()) => {
-    const batchSize = 250;
-    let lastId = null;
-    let seededCount = 0;
-    while (true) {
-      const rows = sqlite.prepare(`
-        SELECT id, body FROM docs
-        WHERE id > ? AND (updatedAt >= ? OR createdAt >= ?)
-        ORDER BY id ASC LIMIT ?
-      `).all(lastId || '', startDate, startDate, batchSize);
-      if (!rows.length) break;
-
-      const seed = sqlite.transaction(() => {
-        for (const row of rows) {
-          const doc = parseBody(row.body);
-          if (!doc || !isSyncDocAfterStart(doc, startDate)) continue;
-          const syncDoc = withSyncTimestamp(doc);
-          queueSyncChange(syncDoc._id, JSON.stringify(syncDoc), syncDoc.updatedAt);
-          seededCount += 1;
-        }
-      });
-      seed();
-      lastId = rows[rows.length - 1].id;
-      if (rows.length < batchSize) break;
-    }
-    return seededCount;
-  };
-
-  const getPendingSyncChanges = (limit, startDate = new Date(0).toISOString()) => {
-    const hasLimit = Number.isInteger(limit) && limit > 0;
-    return sqlite.prepare(
-      `SELECT id, body, updatedAt FROM sync_changes WHERE updatedAt >= ? ORDER BY updatedAt ASC, id ASC${hasLimit ? ' LIMIT ?' : ''}`
-    )
-      .all(...(hasLimit ? [startDate, limit] : [startDate]))
-      .map((row) => ({ id: row.id, doc: parseBody(row.body), updatedAt: row.updatedAt }))
-      .filter((change) => isSyncDocAfterStart(change.doc, startDate));
-  };
-
-  const queueSyncDoc = (doc) => {
-    const syncDoc = withSyncTimestamp(doc);
-    queueSyncChange(syncDoc._id, JSON.stringify(syncDoc), syncDoc.updatedAt);
-  };
-
-  const markSyncChangeSynced = (id, updatedAt) => {
-    sqlite.prepare(
-      'DELETE FROM sync_changes WHERE id = ? AND updatedAt = ?'
-    ).run(id, updatedAt);
-  };
-
-  const applyRemoteSyncDoc = (doc) => {
-    let local = null;
-    try {
-      local = get(doc._id);
-    } catch (error) {
-      if (error.status !== 404) throw error;
-    }
-    if (local && compareSyncDocs(local, doc) >= 0) return false;
-    if (doc._deleted) {
-      sqlite.prepare('DELETE FROM docs WHERE id = ?').run(doc._id);
-      return true;
-    }
-    const normalized = { ...doc };
-    sqlite.prepare(`
-      INSERT INTO docs (id, type, body, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        type = excluded.type,
-        body = excluded.body,
-        updatedAt = excluded.updatedAt
-    `).run(
-      normalized._id,
-      normalized.type || 'unknown',
-      JSON.stringify(normalized),
-      normalized.createdAt || '',
-      normalized.updatedAt || '',
-    );
-    return true;
-  };
-
-  const getSyncState = (key) => {
-    const row = sqlite.prepare('SELECT value FROM sync_state WHERE key = ?').get(key);
-    return row ? JSON.parse(row.value) : null;
-  };
-
-  const setSyncState = (key, value) => {
-    sqlite.prepare(`
-      INSERT INTO sync_state (key, value) VALUES (?, ?)
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value
-    `).run(key, JSON.stringify(value));
-  };
-
-  const acknowledgeSyncBaseline = (key, value) => {
-    sqlite.prepare(`
-      INSERT INTO sync_state (key, value) VALUES (?, ?)
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value
-    `).run(key, JSON.stringify(value));
   };
 
   const destroy = () => {
@@ -356,7 +251,6 @@ if (!table) {
         // Doesn't exist locally → import it
         if (!local) {
           insertOrUpdate.run(row);
-          queueSyncChange(row.id, row.body, row.updatedAt);
           inserted++;
           continue;
         }
@@ -367,7 +261,6 @@ if (!table) {
 
         if (backupTime > localTime) {
           insertOrUpdate.run(row);
-          queueSyncChange(row.id, row.body, row.updatedAt);
           updated++;
         } else {
           skipped++;
@@ -397,58 +290,8 @@ if (!table) {
     destroy,
     resetDb,
     mergeBackup,
-    seedSyncChanges,
-    getPendingSyncChanges,
-    queueSyncDoc,
-    markSyncChangeSynced,
-    applyRemoteSyncDoc,
-    getSyncState,
-    setSyncState,
-    acknowledgeSyncBaseline,
     sqlite,
   };
-}
-
-function compareSyncDocs(left, right) {
-  const leftTime = Date.parse(left.updatedAt || left.createdAt || 0) || 0;
-  const rightTime = Date.parse(right.updatedAt || right.createdAt || 0) || 0;
-  if (leftTime !== rightTime) return leftTime - rightTime;
-  return stableStringify(left).localeCompare(stableStringify(right));
-}
-
-function withSyncTimestamp(doc) {
-  return {
-    ...doc,
-    updatedAt: doc.updatedAt || doc.createdAt || new Date().toISOString(),
-  };
-}
-
-function isSyncDocAfterStart(doc, startDate) {
-  const startTime = Date.parse(startDate);
-  if (Number.isNaN(startTime)) return false;
-  return [doc?.createdAt, doc?.updatedAt].some((value) => {
-    const timestamp = Date.parse(value || '');
-    return !Number.isNaN(timestamp) && timestamp >= startTime;
-  });
-}
-
-function nextUpdatedAt(previousUpdatedAt) {
-  const previousTime = Date.parse(previousUpdatedAt || '');
-  return new Date(
-    Math.max(Date.now(), Number.isNaN(previousTime) ? 0 : previousTime + 1),
-  ).toISOString();
-}
-
-function stableStringify(doc) {
-  if (Array.isArray(doc)) return `[${doc.map(stableStringify).join(",")}]`;
-  if (doc && typeof doc === 'object') {
-    const entries = Object.keys(doc)
-      .filter((key) => key !== '_rev' && key !== '_conflicts')
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${stableStringify(doc[key])}`);
-    return `{${entries.join(',')}}`;
-  }
-  return JSON.stringify(doc);
 }
 
 module.exports = { createSqliteDbService };

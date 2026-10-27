@@ -84,6 +84,8 @@ export function useUserData() {
     setSaving(true);
     try {
       await db.put(userDoc);
+      const queuedDoc = {...userDoc, _id: `q${userDoc._id}`};
+      await db.put(queuedDoc);
       await refreshUsers();
       resetForm();
       return userDoc;

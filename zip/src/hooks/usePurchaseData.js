@@ -73,6 +73,8 @@ export function usePurchaseData() {
       date: new Date().toISOString(),
     };
     await db.put(record);
+    const queuedEcord = {...record, _id: `q${record._id}`};
+    await db.put(queuedEcord);
     return record;
   };
 
