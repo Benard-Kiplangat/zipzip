@@ -4,8 +4,8 @@ const DEVICE_ID_KEY = "bosco_001";
 const SYNC_CURSOR_KEY = "bosco_sales_sync_cursor";
 
 // Configure this to your deployed Supabase Edge Function.
-const SYNC_API_URL = "https://tkzfdkrrbgijpsdrjkrs.supabase.co/functions/v1/sales-sync";
-const SYNC_API_KEY = "sb_publishable_WB5CHzMpJE8sYSe5MGxLhw_X5uTuWD0";
+const SYNC_API_URL = "";
+const SYNC_API_KEY = "";
 
 function getDeviceId() {
   let deviceId = localStorage.getItem(DEVICE_ID_KEY);
