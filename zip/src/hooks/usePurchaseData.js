@@ -85,15 +85,10 @@ export function usePurchaseData() {
 
     const newStock = (Number(prod.stock) || 0) + qty;
     const updatedProd = { ...prod, stock: newStock };
+    const qUpdatedProduct = { _id: `q${prod._id}`, type: "productAdd", qty};
 
     await db.put(updatedProd);
-    await createPurchaseRecord({
-      productId: prod._id,
-      name: prod.name,
-      quantity: qty,
-      costPrice: prod.costPrice || 0,
-    });
-
+    await db.put(qUpdatedProduct);
     await loadData();
     return { name: prod.name, newStock, addedQty: qty };
   };
@@ -129,13 +124,9 @@ export function usePurchaseData() {
         existing.stock = (Number(existing.stock) || 0) + qty;
         existing.costPrice = costPrice || existing.costPrice;
         existing.sellingPrice = sellingPrice || existing.sellingPrice;
+        const qUpdatedProduct = { _id: `q${product._id}`, type: "productAdd", qty};
         await db.put(existing);
-        await createPurchaseRecord({
-          productId: existing._id,
-          name: existing.name,
-          quantity: qty,
-          costPrice: costPrice || existing.costPrice || 0,
-        });
+        await db.put(qUpdatedProduct);
         processedCount++;
       } else {
         const doc = {
@@ -146,13 +137,9 @@ export function usePurchaseData() {
           sellingPrice,
           stock: qty,
         };
+        const qUpdatedProduct = { _id: `q${doc._id}`, type: "productAdd", qty};
         await db.put(doc);
-        await createPurchaseRecord({
-          productId: doc._id,
-          name: doc.name,
-          quantity: qty,
-          costPrice: doc.costPrice,
-        });
+        await db.put(qUpdatedProduct);
         processedCount++;
       }
     }

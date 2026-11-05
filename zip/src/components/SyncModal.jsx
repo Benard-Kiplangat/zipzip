@@ -9,6 +9,7 @@ export default function SyncModal({ isOpen, onClose }) {
   const [syncStatus, setSyncStatus] = useState({
     status: "idle",
   });
+  
 
   useEffect(() => {
     let running = false;
@@ -34,7 +35,7 @@ export default function SyncModal({ isOpen, onClose }) {
     // Start syncing immediately, then continue every five minutes even while
     // the modal is closed (as long as this component remains mounted).
     runSync();
-    const interval = setInterval(runSync, 5 * 60 * 1000);
+    const interval = setInterval(runSync, 60 * 60 * 1000);
 
     window.addEventListener("online", runSync);
 
@@ -108,9 +109,9 @@ export default function SyncModal({ isOpen, onClose }) {
             </span>
           </div>
 
-          <p className="text-sm text-gray-600">
-            {syncProgress.message}
-          </p>
+    <p className="text-sm text-gray-600">
+       {syncProgress.message}{syncProgress.stage === "complete" ? ` Imported ${syncProgress.downloaded}; Uploaded ${syncProgress.uploaded}; Inserted ${syncProgress.inserted}` : ""}
+    </p>
 
           {syncStatus.status === "syncing" && (
             <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">

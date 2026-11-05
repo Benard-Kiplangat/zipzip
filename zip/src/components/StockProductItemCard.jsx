@@ -1,7 +1,10 @@
 import React, { useState } from "react";
 import { formatWhole } from "../utils/format";
+import { showToast } from "../utils/toast";
+import { usePurchaseData } from "../hooks/usePurchaseData";
 
 export default function StockProductItemCard({ product, onEdit, onDelete }) {
+const { addStockToProduct } = usePurchaseData();
   const [showConfirm, setShowConfirm] = useState(false);
 
   const cost = Number(product.costPrice) || 0;
@@ -11,6 +14,29 @@ export default function StockProductItemCard({ product, onEdit, onDelete }) {
   const threshold = product.lowStockThreshold != null ? Number(product.lowStockThreshold) : 2;
   const isLowStock = stock <= threshold;
   const isOutOfStock = stock <= 0;
+  const [quantity, setQuantity] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const handleAddStock = async (productId, quantity) => {
+    try {
+      const res = await addStockToProduct(productId, quantity);
+      showToast(`Added ${res.addedQty} unit(s) to ${res.name} — Stock: ${res.newStock}`);
+    } catch (e) {
+      console.error("Failed to add stock", e);
+      showToast("Failed to add stock. Please try again.");
+    }
+  };
+
+  const handleAdd = async () => {
+    const qty = Number(quantity) || 1;
+    setIsSubmitting(true);
+    try {
+      await handleAddStock(product._id, qty);
+      setQuantity(1);
+    } finally {
+      setIsSubmitting(false);
+    }
+    }
 
   return (
     <div className="border border-slate-200 rounded-xl p-3.5 bg-white shadow-2xs hover:border-slate-300 transition-colors flex sm:flex-col flex-row items-start justify-between gap-3">
@@ -59,6 +85,22 @@ export default function StockProductItemCard({ product, onEdit, onDelete }) {
       <div className="flex items-center gap-2 self-end">
         {!showConfirm ? (
           <>
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+        <input
+          type="number"
+          min="1"
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+          className="w-16 border border-slate-300 p-1.5 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <button
+          onClick={handleAdd}
+          disabled={isSubmitting}
+          className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-2xs transition-colors disabled:opacity-50 whitespace-nowrap"
+        >
+          {isSubmitting ? "Adding..." : "Add"}
+        </button>
+      </div>
             <button
               onClick={() => onEdit(product)}
               className="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"

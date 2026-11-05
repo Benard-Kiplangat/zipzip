@@ -97,8 +97,8 @@ export function useStockData() {
           existing.lowStockThreshold = Number(form.lowStockThreshold);
         savedDoc = { ...existing };
         await db.put(savedDoc);
-        const queuedDoc = {...savedDoc, _id: `q${savedDoc._id}`};
-    await db.put(queuedDoc);
+        const qUpdatedProduct = { _id: `q${savedDoc._id}`, type: "productAdd", qty};
+    await db.put(qUpdatedProduct);
       } else if (form.id) {
         const doc = {
           _id: form.id,

@@ -21,6 +21,7 @@ export function showToast(message, duration = 3000) {
   toast.style.color = 'white';
   toast.style.padding = '8px 12px';
   toast.style.marginTop = '8px';
+  toast.style.border = 'solid 2px #fff';
   toast.style.borderRadius = '6px';
   toast.style.boxShadow = '0 6px 18px rgba(0,0,0,0.12)';
   toast.style.fontSize = '14px';

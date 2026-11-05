@@ -2,7 +2,6 @@ import React, { useRef, useState, useEffect } from "react";
 import { db } from "../db";
 import SyncModal from "./SyncModal";
 import { syncSales } from "./salesSync";
-import { subscribeSyncStatus } from "../utils/syncService";
 import { useStockData } from '../hooks/useStockData'
 
 // Helpers
@@ -46,22 +45,16 @@ export default function SyncButton() {
   stage: "idle",
   message: "Ready to sync",
 });
-  const [syncStatus, setSyncStatus] = useState({ status: "idle" });
   const { hardReload } = useStockData();
 
-  useEffect(() => {
-    const unsubscribe = subscribeSyncStatus(setSyncStatus);
-    return () => unsubscribe();
-  }, []);
 
 const handleSyncSales = async () => {
-  if (syncStatus.status === "syncing") return;
+  if (syncProgress.stage === "syncing") return;
 
   try {
-    setSyncStatus({ status: "syncing" });
 
     setSyncProgress({
-      stage: "starting",
+      stage: "syncing",
       message: "Starting synchronization...",
     });
 
@@ -71,8 +64,6 @@ const handleSyncSales = async () => {
       },
     });
 
-    setSyncStatus({ status: "success" });
-
     setSyncProgress({
       stage: "complete",
       message: "Synchronization completed successfully.",
@@ -81,8 +72,6 @@ const handleSyncSales = async () => {
     console.log("Sales sync result:", result);
   } catch (error) {
     console.error("Sales synchronization failed:", error);
-
-    setSyncStatus({ status: "error" });
 
     setSyncProgress({
       stage: "error",
@@ -325,7 +314,7 @@ const handleSyncSales = async () => {
   };
 
   const getStatusLabel = () => {
-    switch (syncStatus.status) {
+    switch (syncProgress.stage) {
       case "online":
         return "📡 Online Sync";
       case "syncing":
@@ -355,10 +344,10 @@ const handleSyncSales = async () => {
       <button
         type="button"
         onClick={() => setIsSyncModalOpen(true)}
-        title={syncStatus.progressMessage || syncStatus.errorMessage || ""}
-        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors border shadow-2xs flex items-center gap-1.5 ${syncStatus.status === "online"
+        title={syncProgress.message || ""}
+        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors border shadow-2xs flex items-center gap-1.5 ${syncProgress.stage === "idle"
           ? "bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100"
-          : syncStatus.status === "syncing"
+          : syncProgress.stage === "syncing"
             ? "bg-blue-50 border-blue-300 text-blue-800 hover:bg-blue-100"
             : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
           }`}

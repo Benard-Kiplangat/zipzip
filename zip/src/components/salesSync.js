@@ -77,12 +77,13 @@ async function uploadSales(deviceId, queuedDocs) {
     return { uploaded: 0 };
   }
 
+/*
   const sales = queuedDocs.filter((doc) => doc.type === "sale");
   const products = queuedDocs.filter((doc) => doc.type === "product");
   const customers = queuedDocs.filter((doc) => doc.type === "customer");
   const users = queuedDocs.filter((doc) => doc.type === "user");
 
-  /* console.log(sales);
+ console.log(sales);
    console.log(products);
    console.log(customers);
    console.log(users);
@@ -158,7 +159,7 @@ async function importSales(docs) {
         skipped++;
         continue;
       } catch (error) {
-        if (error.status !== 404 && error.name !== "not_found") {
+        if (error.status !== 404 && ((error.name !== "not_found") || error.name !== "missing")) {
           console.log(error);
         }
       }
@@ -180,11 +181,11 @@ async function importSales(docs) {
         inserted++;
       } else if (newSale.type === "product") {
         let product;
-        if (newSale.productId) {
+        if (newSale._id) {
           try {
-            product = await db.get(newSale.productId);
+            product = await db.get(newSale._id);
           } catch (error) {
-            if (error.status !== 404 && error.name !== "not_found") {
+            if (error.status !== 404 && ((error.name !== "not_found") || error.name !== "missing")) {
               console.log(error);
             }
           }
@@ -193,14 +194,32 @@ async function importSales(docs) {
         if (product) {
           await db.put({
             ...product,
-            stock: (Number(product.stock) || 0) + (Number(newSale.stock) || 0),
+            stock: ((Number(product.stock) || 0) + (Number(newSale.stock) || Number(newSale.qty) || 0 )),
           });
         } else {
           await db.put(newSale);
         }
         inserted++;
+      } else if (newSale.type === "productAdd") {
+        let product;
+        if (newSale._id) {
+          try {
+            product = await db.get(newSale._id);
+          } catch (error) {
+            if (error.status !== 404 && ((error.name !== "not_found") || error.name !== "missing")) {
+              continue;
+            }
+          }
+        }
+
+        if (product) {
+          await db.put({
+            ...product,
+            stock: ((Number(product.stock) || 0) + (newSale.qty || 0)),
+          });
       } else {
         await db.put(newSale);
+        }
         inserted++
       }
     } catch (error) {
@@ -246,7 +265,7 @@ export async function syncSales({ onProgress } = {}) {
   const isFirstSync = localStorage.getItem(SYNC_CURSOR_KEY) === null;
 
   if (isFirstSync) {
-    report("Initializing device...");
+    report("Initializing device...", "Setting up your new device...");
 
     const initDevice = await apiRequest("initialize", {
       deviceId,
@@ -321,7 +340,7 @@ export async function syncSales({ onProgress } = {}) {
   }
 
   report("complete", "Sales synchronization completed.", {
-    uploaded: uploadResult.uploaded,
+    uploaded: localDocs.length,
     downloaded: sales.length,
     inserted: importResult.inserted,
   });
