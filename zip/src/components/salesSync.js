@@ -1,11 +1,13 @@
 import { db } from "../db";
+import { useBusinessConfig } from "../config";
 
 const DEVICE_ID_KEY = "bosco_001";
+const BUSINESS_CODE = "bosco_bcode";
 const SYNC_CURSOR_KEY = "bosco_sales_sync_cursor";
 
 // Configure this to your deployed Supabase Edge Function.
-const SYNC_API_URL = "";
-const SYNC_API_KEY = "";
+const SYNC_API_URL = "ggg";
+const SYNC_API_KEY = "dff";
 
 function getDeviceId() {
   let deviceId = localStorage.getItem(DEVICE_ID_KEY);
@@ -72,7 +74,7 @@ async function getLocalSales() {
  * The server must enforce uniqueness on sale_id so retrying an
  * upload cannot create a duplicate.
  */
-async function uploadSales(deviceId, queuedDocs) {
+async function uploadSales(deviceId, queuedDocs, bCode) {
   if (!queuedDocs.length) {
     return { uploaded: 0 };
   }
@@ -97,6 +99,7 @@ async function uploadSales(deviceId, queuedDocs) {
   const uploadResult = await apiRequest("upload", {
     deviceId,
     saleData,
+    bCode,
   });
 
   if (!uploadResult.accepted) {
@@ -117,11 +120,12 @@ async function uploadSales(deviceId, queuedDocs) {
 /**
  * Download sales from other devices after our saved cursor.
  */
-async function downloadSales(deviceId, cursor) {
+async function downloadSales(deviceId, cursor, bCode) {
   return apiRequest("download", {
     deviceId,
     afterSequenceId: cursor,
     limit: 500,
+    bCode,
   });
 }
 
@@ -132,108 +136,173 @@ async function downloadSales(deviceId, cursor) {
  * This function deliberately does not deduct stock.
  * We will add the stock effect for newly downloaded sales separately.
  */
-async function importSales(docs) {
-  if (!docs.length) {
-    return { inserted: 0, skipped: 0 };
+
+
+const isNotFoundError = (error) =>
+  error.status === 404 ||
+  error.name === "not_found" ||
+  error.name === "missing";
+
+async function getDocOrNull(id) {
+  try {
+    return await db.get(id);
+  } catch (error) {
+    if (isNotFoundError(error)) return null;
+    throw error;
+  }
+}
+
+// Update product information without overwriting locally calculated stock.
+async function importProduct(doc) {
+  const existing = await getDocOrNull(doc._id);
+
+  if (!existing) {
+    await db.put(doc);
+    return;
   }
 
-  let inserted = 0;
-  let skipped = 0;
+  await db.put({
+    ...existing,
+    ...doc,
+    _id: existing._id,
+    _rev: existing._rev,
+    stock: existing.stock,
+  });
+}
+
+async function updateProductStock(productId, quantity) {
+  const product = await getDocOrNull(productId);
+
+  if (!product) {
+    return false;
+  }
+
+  await db.put({
+    ...product,
+    stock: Math.max(
+      0,
+      (Number(product.stock) || 0) + quantity
+    ),
+  });
+
+  return true;
+}
+
+function normalizeImportedDoc(item) {
+  const doc = item?.saleData;
+
+  if (!doc?._id || typeof doc._id !== "string") {
+    return null;
+  }
+
+  const normalized = {
+    ...doc,
+    _id: doc._id.slice(1),
+  };
+
+  delete normalized._rev;
+
+  return normalized;
+}
+
+async function importSales(docs) {
+  const result = {
+    inserted: 0,
+    skipped: 0,
+    failed: 0,
+    missingProducts: 0,
+    errors: [],
+  };
+
+  if (!Array.isArray(docs) || !docs.length) {
+    return result;
+  }
 
   for (const item of docs) {
-    const doc = item.saleData;
-
-    if (!doc || !doc._id) {
-      skipped++;
-      continue;
-    }
-
-    // Strip PouchDB revision metadata before inserting.
-    const newSale = { ...doc, _id: doc._id.slice(1) };
-    delete newSale._rev;
+    let doc;
 
     try {
-      // Check for duplicates before changing stock so retries are idempotent.
-      try {
-        await db.get(newSale._id);
-        skipped++;
+      doc = normalizeImportedDoc(item);
+
+      if (!doc) {
+        result.skipped++;
         continue;
-      } catch (error) {
-        if (error.status !== 404 && ((error.name !== "not_found") || error.name !== "missing")) {
-          console.log(error);
-        }
       }
 
-      if (newSale.type === "sale") {
-        if (newSale.productId) {
-          try {
-            const product = await db.get(newSale.productId);
-            await db.put({
-              ...product,
-              stock: (Number(product.stock) || 0) - (Number(newSale.quantity) || 0),
-            });
-          } catch (error) {
-            console.log(error);
-            // Keep the sale even if its product is not present locally.
-          }
-        }
-        await db.put(newSale);
-        inserted++;
-      } else if (newSale.type === "product") {
-        let product;
-        if (newSale._id) {
-          try {
-            product = await db.get(newSale._id);
-          } catch (error) {
-            if (error.status !== 404 && ((error.name !== "not_found") || error.name !== "missing")) {
-              console.log(error);
-            }
-          }
+      // Product additions use the product ID as _id,
+      // so they require a separate movement ID for deduplication.
+      if (doc.type === "productAdd") {
+
+        const quantity = Number(doc.qty ?? doc.quantity ?? doc.stock) || 0;
+        if (quantity <= 0) {
+          result.skipped++;
+          continue;
         }
 
-        if (product) {
-          await db.put({
-            ...product,
-            stock: ((Number(product.stock) || 0) + (Number(newSale.stock) || Number(newSale.qty) || 0 )),
-          });
-        } else {
-          await db.put(newSale);
+        const updated = await updateProductStock(doc._id, quantity);
+
+        if (!updated) {
+          throw new Error(`Product not found: ${doc._id}`);
         }
-        inserted++;
-      } else if (newSale.type === "productAdd") {
-        let product;
-        if (newSale._id) {
-          try {
-            product = await db.get(newSale._id);
-          } catch (error) {
-            if (error.status !== 404 && ((error.name !== "not_found") || error.name !== "missing")) {
-              continue;
+        result.inserted++;
+        continue;
+      }
+
+      // Check duplicates for ordinary documents.
+      if (await getDocOrNull(doc._id)) {
+        result.skipped++;
+        continue;
+      }
+
+      switch (doc.type) {
+        case "sale": {
+          const quantity = Number(doc.quantity ?? doc.qty) || 0;
+
+          if (doc.productId) {
+            const updated = await updateProductStock(
+              doc.productId,
+              -quantity
+            );
+
+            if (!updated) {
+              result.missingProducts++;
+              console.warn("Product missing during sale import:", doc.productId);
             }
           }
+
+          await db.put(doc);
+          result.inserted++;
+          break;
         }
 
-        if (product) {
-          await db.put({
-            ...product,
-            stock: ((Number(product.stock) || 0) + (newSale.qty || 0)),
-          });
-      } else {
-        await db.put(newSale);
+        case "product": {
+          await importProduct(doc);
+          result.inserted++;
+          break;
         }
-        inserted++
+
+        default:
+          result.skipped++;
+          console.warn("Unknown document type:", doc.type);
       }
     } catch (error) {
-      // Another sync or local process may have inserted it already.
-      console.error("Could not import sale:", doc._id, error);
-      throw error;
+      // Record the error and continue with the next document.
+      result.failed++;
+
+      result.errors.push({
+        id: doc?._id || item?.saleData?._id || "unknown",
+        message: error.message,
+      });
+
+      console.error("Import failed:", doc?._id, error);
     }
   }
 
-  if (inserted > 0) {
+  if (result.inserted > 0) {
     window.dispatchEvent(new CustomEvent("bosco:db-changed"));
   }
 
-  return { inserted, skipped };
+  return result;
 }
 
 /**
@@ -250,7 +319,7 @@ async function importSales(docs) {
  * - Insert missing sales.
  * - Advance the cursor after successful import.
  */
-export async function syncSales({ onProgress } = {}) {
+export async function syncSales({ onProgress, bCode } = {}) {
   const report = (stage, message, details = {}) => {
     onProgress?.({
       stage,
@@ -269,6 +338,7 @@ export async function syncSales({ onProgress } = {}) {
 
     const initDevice = await apiRequest("initialize", {
       deviceId,
+      bCode,
     });
 
 
@@ -282,7 +352,7 @@ export async function syncSales({ onProgress } = {}) {
 
     report("baseline", "Establishing initial synchronization baseline...");
 
-    const baseline = await apiRequest("baseline", { deviceId });
+    const baseline = await apiRequest("baseline", { deviceId, bCode });
 
     if (!baseline.success) {
       throw new Error(
@@ -311,7 +381,7 @@ export async function syncSales({ onProgress } = {}) {
     total: localDocs.length,
   });
 
-  const uploadResult = await uploadSales(deviceId, localDocs);
+  const uploadResult = await uploadSales(deviceId, localDocs, bCode);
 
   report("uploaded", "Local sales uploaded successfully.", {
     total: localDocs.length,
@@ -322,7 +392,7 @@ export async function syncSales({ onProgress } = {}) {
   report("downloading", "Checking for sales from other terminals...");
 
   const cursor = getCursor();
-  const downloadResult = await downloadSales(deviceId, cursor);
+  const downloadResult = await downloadSales(deviceId, cursor, bCode);
   const sales = downloadResult.sales || [];
 
   report("importing", `Importing ${sales.length} received sales...`, {

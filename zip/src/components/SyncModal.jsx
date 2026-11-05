@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { syncSales } from "./salesSync"
+import { syncSales } from "./salesSync";
+import { useBusinessConfig } from "../config";
 
 export default function SyncModal({ isOpen, onClose }) {
   const [syncProgress, setSyncProgress] = useState({
@@ -10,7 +11,9 @@ export default function SyncModal({ isOpen, onClose }) {
     status: "idle",
   });
   
-
+  const { config } = useBusinessConfig();
+  const bCode = config.businessCode;
+  
   useEffect(() => {
     let running = false;
 
@@ -24,6 +27,7 @@ export default function SyncModal({ isOpen, onClose }) {
           onProgress: (progress) => {
             setSyncProgress(progress);
           },
+          bCode,
         });
       } catch (error) {
         console.error("Automatic sales sync failed:", error);
@@ -60,6 +64,7 @@ export default function SyncModal({ isOpen, onClose }) {
         onProgress: (progress) => {
           setSyncProgress(progress);
         },
+        bCode,
       })
       setSyncStatus({
         stage: "complete",
