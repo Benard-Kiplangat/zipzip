@@ -39,7 +39,7 @@ export default function SyncModal({ isOpen, onClose }) {
     // Start syncing immediately, then continue every five minutes even while
     // the modal is closed (as long as this component remains mounted).
     runSync();
-    const interval = setInterval(runSync, 60 * 60 * 1000);
+    const interval = setInterval(runSync, 30 * 60 * 1000);
 
     window.addEventListener("online", runSync);
 

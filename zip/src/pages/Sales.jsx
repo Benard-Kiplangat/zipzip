@@ -26,6 +26,7 @@ export default function Sales() {
   const [viewMode, setViewMode] = useState("todaySales");
   const [selectedSales, setSelectedSales] = useState([]);
   const [allSales, setAllSales] = useState([]);
+  const [salesPeriod, setSalesPeriod] = useState("6");
   const [salesSearch, setSalesSearch] = useState("");
   const [searchRange, setSearchRange] = useState("week");
   const [etimsMode, setEtimsMode] = useState(() => {
@@ -36,7 +37,7 @@ export default function Sales() {
 
   useEffect(() => {
     loadSales();
-  }, []);
+  }, [salesPeriod]);
 
   useEffect(() => {
     const handleDataRefresh = () => {
@@ -94,9 +95,16 @@ export default function Sales() {
 
     // localStorage.getItem("saleIdNormalized") ? "" : window.electronAPI ? normalizeSaleIdElectron() : normalizeSaleId();
 
+    const periodStart = new Date();
+    periodStart.setDate(1);
+    if (salesPeriod !== "all") {
+      periodStart.setMonth(periodStart.getMonth() - Number(salesPeriod));
+    }
     const result = await db.allDocs({
       include_docs: true,
-      startkey: "sale",
+      startkey: salesPeriod === "all"
+        ? "sale"
+        : `sale_${periodStart.toISOString().slice(0, 7)}`,
       endkey: "sale\uffff",
     });
 
@@ -645,6 +653,17 @@ export default function Sales() {
                       <option value="week">Past 7 days</option>
                       <option value="month">Past 30 days</option>
                       <option value="all">All time</option>
+                    </select>
+                    <select
+                      aria-label="Sales history period"
+                      value={salesPeriod}
+                      onChange={e => setSalesPeriod(e.target.value)}
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 shadow-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                    >
+                      <option value="all">All time</option>
+                      <option value="3">Past 3 months</option>
+                      <option value="6">Past 6 months</option>
+                      <option value="12">Past 12 months</option>
                     </select>
                   </div>
                   <div className="flex items-center justify-between gap-4 pt-2 pl-2">

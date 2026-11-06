@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { db } from "../db";
 import { showToast } from "../utils/toast";
 import { formatWhole } from "../utils/format";
@@ -7,6 +7,8 @@ import Cart from "../components/Cart";
 import POSProductCard from "../components/POSProductCard";
 import CustomerDebtsCard from "../components/CustomerDebtsCard";
 import LowStockModal from "../components/LowStockModal";
+import { syncSales } from "../components/salesSync";
+import { useBusinessConfig } from "../config";
 
 export default function POS() {
   const {
@@ -28,6 +30,52 @@ export default function POS() {
 
   const [cart, setCart] = useState([]);
   const [showLowStockModal, setShowLowStockModal] = useState(false);
+
+  const [syncProgress, setSyncProgress] = useState({
+    stage: "idle",
+    message: "ready to sync",
+  });
+  const [syncStatus, setSyncStatus] = useState({
+    status: "idle",
+  });
+  
+  const { config } = useBusinessConfig();
+  const bCode = config.businessCode;
+  
+  useEffect(() => {
+    let running = false;
+
+    const runSync = async () => {
+      if (running || !navigator.onLine) return;
+
+      running = true;
+
+      try {
+        await syncSales({
+          onProgress: (progress) => {
+            setSyncProgress(progress);
+          },
+          bCode,
+        });
+      } catch (error) {
+        console.error("Automatic sales sync failed:", error);
+      } finally {
+        running = false;
+      }
+    };
+
+    // Start syncing immediately, then continue every 30 minutes even while
+    // the modal is closed (as long as this component remains mounted).
+    runSync();
+    const interval = setInterval(runSync, 30 * 60 * 1000);
+
+    window.addEventListener("online", runSync);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("online", runSync);
+    };
+  }, [bCode]);
 
   // Single Item Sale
   const handleSell = useCallback(async (product, options) => {
