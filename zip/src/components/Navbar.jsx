@@ -88,7 +88,7 @@ export default function Navbar() {
       {/* Mobile Top App Bar */}
       <div className="lg:hidden bg-slate-900 text-white flex items-center justify-between p-4 sticky top-0 z-40 shadow-md pt-8">
         <div className="flex items-center gap-2 font-bold text-lg">
-          <span className="p-1.5 bg-blue-700 rounded-lg text-white">🛠️</span>
+          <span className="p-1.5 bg-gradient-to-br from-blue-600 to-orange-800 rounded-lg text-white">🍽️</span>
           <span>{config.businessName}</span>
         </div>
         <button
@@ -126,8 +126,8 @@ export default function Navbar() {
           {/* Header Brand */}
           <div className="p-5 border-b border-slate-800 flex items-center justify-between">
             <Link to="/" className="flex items-center gap-3 group" onClick={() => setMobileOpen(false)}>
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-800 flex items-center justify-center text-white shadow-md shadow-blue-900/40 group-hover:scale-105 transition-transform">
-                <span className="text-xl">🛠️</span>
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-orange-800 flex items-center justify-center text-white shadow-md shadow-blue-900/40 group-hover:scale-105 transition-transform">
+                <span className="text-xl">🍽️</span>
               </div>
               <div>
                 <div className="font-bold text-base tracking-wide text-white leading-tight">{config.businessName}</div>

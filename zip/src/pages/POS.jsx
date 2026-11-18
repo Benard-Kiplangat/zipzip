@@ -1,14 +1,9 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { db } from "../db";
 import { showToast } from "../utils/toast";
-import { formatWhole } from "../utils/format";
 import { usePOSData } from "../hooks/usePOSData";
 import Cart from "../components/Cart";
 import POSProductCard from "../components/POSProductCard";
-import CustomerDebtsCard from "../components/CustomerDebtsCard";
-import LowStockModal from "../components/LowStockModal";
-import { syncSales } from "../components/salesSync";
-import { useBusinessConfig } from "../config";
 
 export default function POS() {
   const {
@@ -16,165 +11,50 @@ export default function POS() {
     setProducts,
     search,
     setSearch,
-    customers,
     productIndex,
-    visibleProducts,
-    lowStockProducts,
-    customerCredits,
-    grandCreditTotal,
     loadingProducts,
-    setOutstandingCredits,
     bumpPopular,
-    loadCustomers,
   } = usePOSData();
 
+  // Cart is an ARRAY: [{ product, qty, sellingPrice }]
   const [cart, setCart] = useState([]);
-  const [showLowStockModal, setShowLowStockModal] = useState(false);
 
-  const [syncProgress, setSyncProgress] = useState({
-    stage: "idle",
-    message: "ready to sync",
-  });
-  const [syncStatus, setSyncStatus] = useState({
-    status: "idle",
-  });
-  
-  const { config } = useBusinessConfig();
-  const bCode = config.businessCode;
-  
-  useEffect(() => {
-    let running = false;
+  // Filter - default restaurant, missing source = others
+  const [sourceFilter, setSourceFilter] = useState("restaurant");
 
-    const runSync = async () => {
-      if (running || !navigator.onLine) return;
+  const normalizedProducts = useMemo(() => {
+    return products.map((p) => ({
+      ...p,
+      _source: (p.source || "").toString().trim().toLowerCase() || "others",
+    }));
+  }, [products]);
 
-      running = true;
-
-      try {
-        await syncSales({
-          onProgress: (progress) => {
-            setSyncProgress(progress);
-          },
-          bCode,
-        });
-      } catch (error) {
-        console.error("Automatic sales sync failed:", error);
-      } finally {
-        running = false;
-      }
-    };
-
-    // Start syncing immediately, then continue every 30 minutes even while
-    // the modal is closed (as long as this component remains mounted).
-    runSync();
-    const interval = setInterval(runSync, 30 * 60 * 1000);
-
-    window.addEventListener("online", runSync);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("online", runSync);
-    };
-  }, [bCode]);
-
-  // Single Item Sale
-  const handleSell = useCallback(async (product, options) => {
-    const qty = options.quantity || 1;
-    const price = options.sellingPrice || product.sellingPrice;
-    const isCreditSale = options.isCreditSale || false;
-    const customerName = (options.customerName || "").trim();
-    const initialPayment = options.downPayment || 0;
-
-    if (product.stock < qty) {
-      alert("Not enough stock");
-      return;
+  const sourceOptions = useMemo(() => {
+    const counts = {};
+    for (const p of normalizedProducts) {
+      counts[p._source] = (counts[p._source] || 0) + 1;
     }
-
-    if (isCreditSale && !customerName) {
-      alert("Please enter the customer's name for a credit sale.");
-      return;
-    }
-
-    const subtotal = qty * product.sellingPrice;
-    const discount = Math.max(subtotal - (price * qty), 0);
-    const total = subtotal - discount;
-    const profit = total - product.costPrice * qty;
-
-    const sale = {
-      _id: `sale_${new Date().toISOString()}`,
-      type: "sale",
-      productId: product._id,
-      name: product.name,
-      quantity: qty,
-      total,
-      costPrice: product.costPrice,
-      sellingPrice: price,
-      profit,
-      discount,
-      timestamp: new Date().toISOString(),
-      isCreditSale,
-      dwnPayment: initialPayment,
-      paymentHistory: [],
-      customerName: isCreditSale ? customerName : "",
-    };
-
-    const latestProduct = await db.get(product._id);
-
-    const newStock =
-      (Number(latestProduct.stock) || 0) - Number(qty);
-
-    if (newStock < 0) {
-      throw new Error("Not enough stock available.");
-    }
-
-    latestProduct.stock = newStock;
-    latestProduct.totalSold =
-      (Number(latestProduct.totalSold) || 0) + Number(qty);
-
-    await db.put(sale);
-    const queuedSale = {...sale, _id: `q${sale._id}`};
-    await db.put(queuedSale);
-    await db.put(latestProduct);
-
-    setProducts((prev) => {
-      const index = prev.findIndex((item) => item._id === product._id);
-      if (index === -1) return prev;
-
-      const next = [...prev];
-      next[index] = {
-        ...next[index],
-        stock: newStock,
-        totalSold: latestProduct.totalSold,
-      };
-      return next;
+    const order = ["restaurant", "chomazone", "butchery", "shop", "grocery", "kitchen", "freezer", "others"];
+    const sorted = Object.keys(counts).sort((a, b) => {
+      const ai = order.indexOf(a);
+      const bi = order.indexOf(b);
+      if (ai === -1 && bi === -1) return a.localeCompare(b);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
     });
+    return [
+      { value: "all", label: "All", count: normalizedProducts.length },
+      ...sorted.map((s) => ({ value: s, label: s, count: counts[s] })),
+    ];
+  }, [normalizedProducts]);
 
-    if (isCreditSale) {
-      setOutstandingCredits((prev) => [
-        {
-          _id: sale._id,
-          type: "sale",
-          name: sale.name,
-          quantity: sale.quantity,
-          total: sale.total,
-          customerName: sale.customerName,
-          dwnPayment: sale.dwnPayment,
-          timestamp: sale.timestamp,
-          isCreditSale: true,
-        },
-        ...prev,
-      ]);
-    }
+  const visibleProducts = useMemo(() => {
+    if (sourceFilter === "all") return normalizedProducts;
+    return normalizedProducts.filter((p) => p._source === sourceFilter);
+  }, [normalizedProducts, sourceFilter]);
 
-    showToast(`Sold ${qty} x ${product.name} — KES ${formatWhole(total)}`);
-    try {
-      bumpPopular(product._id);
-    } catch (e) {
-      /* ignore */
-    }
-  }, [bumpPopular, setOutstandingCredits, setProducts]);
-
-  // Add Item to Cart
+  // ONE handleAddToCart - array version only. Card calls it with just (product)
   const handleAddToCart = useCallback((product, options = {}) => {
     const qty = options.quantity || 1;
     const price = options.sellingPrice || product.sellingPrice;
@@ -202,10 +82,11 @@ export default function POS() {
     );
   };
 
-  const handleCartUpdatePrice = (productId, price) => {
+  // These were missing - added
+  const handleCartUpdatePrice = (productId, sellingPrice) => {
     setCart((prev) =>
       prev.map((item) =>
-        item.product._id === productId ? { ...item, sellingPrice: price } : item
+        item.product._id === productId ? { ...item, sellingPrice } : item
       )
     );
   };
@@ -224,30 +105,13 @@ export default function POS() {
   } = {}) => {
     if (cart.length === 0) return;
 
-    if (isCreditSale && !customerName.trim()) {
-      alert("Please enter the customer's name for a credit sale.");
-      return;
-    }
-
-    for (const item of cart) {
-      const current = productIndex.get(item.product._id);
-      if (!current || current.stock < item.qty) {
-        alert(
-          `Not enough stock for "${item.product.name}" (${current?.stock ?? 0} remaining)`
-        );
-        return;
-      }
-    }
-
     const bulkSaleId = new Date().toISOString();
 
     for (let i = 0; i < cart.length; i++) {
       const item = cart[i];
       const product = productIndex.get(item.product._id);
-      const subtotal = item.qty * product.sellingPrice;
-      const discount = Math.max(subtotal - (item.sellingPrice * item.qty), 0);
-      const total = subtotal - discount;
-      const profit = total - product.costPrice * item.qty;
+      if (!product) continue;
+      const total = item.qty * item.sellingPrice;
 
       const sale = {
         _id: `sale_${bulkSaleId}-${i}`,
@@ -256,26 +120,19 @@ export default function POS() {
         name: product.name,
         quantity: item.qty,
         total,
-        costPrice: product.costPrice,
         sellingPrice: item.sellingPrice,
-        discount,
-        profit,
         timestamp: bulkSaleId,
-        isCreditSale,
-        customerName: customerName.trim() || "",
-        dwnPayment: 0,
         paymentHistory: [],
-        bulkDwnPayment: isCreditSale ? Number(dwnPayment) : 0,
         isBulkSale: true,
         bulkSaleId,
       };
 
       await db.put(sale);
 
-      const queuedSale = {...sale, _id: `q${sale._id}`};
+      const queuedSale = { ...sale, _id: `q${sale._id}` };
       await db.put(queuedSale);
 
-      const updatedProduct = { ...product, totalSold: (product.totalSold || 0) + Number(item.qty), stock: product.stock - item.qty };
+      const updatedProduct = { ...product, stock: product.stock - item.qty };
       await db.put(updatedProduct);
 
       try {
@@ -285,7 +142,6 @@ export default function POS() {
       }
     }
 
-    const totalAmount = cart.reduce((sum, item) => sum + item.qty * item.sellingPrice, 0);
     setCart([]);
 
     const soldQuantities = new Map(
@@ -301,34 +157,10 @@ export default function POS() {
         next[index] = {
           ...next[index],
           stock: Math.max(0, (Number(next[index].stock) || 0) - qty),
-          totalSold: (Number(next[index].totalSold) || 0) + qty,
         };
       }
       return next;
     });
-
-    if (isCreditSale) {
-      const nextCreditEntry = {
-        isBulkGroup: true,
-        bulkSaleId,
-        customerName: customerName.trim(),
-        dwnPayment: Number(dwnPayment),
-        timestamp: bulkSaleId,
-        items: cart.map((item) => ({
-          _id: `${bulkSaleId}-${item.product._id}`,
-          name: item.product.name,
-          quantity: item.qty,
-          total: item.qty * item.sellingPrice,
-          customerName: customerName.trim(),
-        })),
-      };
-      setOutstandingCredits((prev) => [nextCreditEntry, ...prev]);
-    }
-
-    const creditNote = isCreditSale ? ` (Credit — ${customerName.trim()})` : "";
-    showToast(
-      `Bulk sale of ${cart.length} items — KES ${formatWhole(totalAmount)} complete${creditNote}`
-    );
   };
 
   return (
@@ -346,69 +178,77 @@ export default function POS() {
         Cart
         {cart.length > 0 && (
           <span className="bg-white text-blue-600 min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center text-[11px] font-bold">
-            {cart.reduce(
-              (total, item) => total + (Number(item.qty) || 0),
-              0
-            )}
+            {cart.reduce((total, item) => total + (Number(item.qty) || 0), 0)}
           </span>
         )}
       </button>
+
       {/* Column 1: Search & Product Catalog */}
       <div className="flex-1 min-w-0 space-y-4">
-        {/* Low Stock Preview Banner */}
-        {lowStockProducts.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between shadow-xs">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">⚠️</span>
-              <div>
-                <div className="font-bold text-xs text-amber-900">Low Stock Alert</div>
-                <div className="text-[11px] text-amber-700">
-                  {lowStockProducts.length} spare parts running low
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowLowStockModal(true)}
-              className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-            >
-              View List
-            </button>
-          </div>
-        )}
-
-        {/* Product Search */}
         <input
           type="text"
-          placeholder="Search spare parts by name..."
+          placeholder="Search products by name..."
           className="w-full p-2.5 bg-white border border-slate-200 rounded-xl shadow-2xs text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
 
+        {/* Source Filter Row */}
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+          {sourceOptions.map((opt) => {
+            const isActive = sourceFilter === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setSourceFilter(opt.value)}
+                className={[
+                  "shrink-0 rounded-full border px-4 py-2 text-sm font-semibold whitespace-nowrap transition-all",
+                  "active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
+                  isActive
+                    ? "bg-orange-600 border-orange-600 text-white shadow"
+                    : "bg-white border-slate-200 text-slate-600 hover:border-orange-300 hover:text-orange-700",
+                ].join(" ")}
+              >
+                <span className="capitalize">{opt.label}</span>
+                <span
+                  className={[
+                    "ml-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-bold",
+                    isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500",
+                  ].join(" ")}
+                >
+                  {opt.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Product Cards List */}
-        <div className="space-y-3">
-          {loadingProducts && (<div className="text-center py-10 bg-white border rounded-xl text-slate-400 text-sm">
-            Products loading...
-          </div>
-          ) || (visibleProducts.length === 0 ? (
-            <div className="text-center py-10 bg-white border rounded-xl text-slate-400 text-sm">
+        <div className="grid gap-2 sm:gap-3 [grid-template-columns:repeat(auto-fill,minmax(140px,1fr))]">
+          {loadingProducts ? (
+            <div className="col-span-full text-center py-10 bg-white border rounded-xl text-slate-400 text-sm">
+              Products loading...
+            </div>
+          ) : visibleProducts.length === 0 ? (
+            <div className="col-span-full text-center py-10 bg-white border rounded-xl text-slate-400 text-sm">
               No products found or still loading.
             </div>
           ) : (
-            visibleProducts.map((product) => (
-              <POSProductCard
-                key={product._id}
-                product={product}
-                customers={customers}
-                onSell={handleSell}
-                onAddToCart={handleAddToCart}
-              />
-            ))
-          ))}
+            visibleProducts.map((product) => {
+              return (
+                <POSProductCard
+                  key={product._id}
+                  product={product}
+                  onAddToCart={handleAddToCart}
+                />
+              );
+            })
+          )}
         </div>
       </div>
 
-      {/* Column 2: Cart & Customer Debts Sidebar */}
+      {/* Column 2: Cart Sidebar */}
       <div id="pos-cart" className="w-full lg:w-96 flex flex-col gap-4 flex-shrink-0">
         <Cart
           cart={cart}
@@ -417,22 +257,8 @@ export default function POS() {
           onRemoveItem={handleCartRemoveItem}
           onClearCart={handleCartClear}
           onMakeSale={handleCartSale}
-          customers={customers}
-          loadCustomers={loadCustomers}
-        />
-
-        <CustomerDebtsCard
-          customerCredits={customerCredits}
-          grandCreditTotal={grandCreditTotal}
         />
       </div>
-
-      {/* Low Stock Detailed Modal */}
-      <LowStockModal
-        isOpen={showLowStockModal}
-        onClose={() => setShowLowStockModal(false)}
-        lowStockProducts={lowStockProducts}
-      />
     </div>
   );
 }
